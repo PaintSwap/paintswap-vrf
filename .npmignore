@@ -1,0 +1,14 @@
+# Exclude everything
+*
+
+# Include only -
+!dist/
+!dist/**
+!abi/
+!abi/**
+!contracts/
+!contracts/**
+!docs/
+!docs/**
+!README.md
+!package.json

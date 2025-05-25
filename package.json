@@ -1,0 +1,74 @@
+{
+  "name": "@paintswap/vrf",
+  "version": "0.0.1",
+  "description": "Paintswap VRF",
+  "license": "MIT",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/esm/index.d.ts",
+  "files": [
+    "dist",
+    "abi",
+    "contracts"
+  ],
+  "exports": {
+    ".": {
+      "require": "./dist/cjs/index.js",
+      "import": "./dist/esm/index.js"
+    },
+    "./typechain-types": {
+      "require": "./dist/cjs/typechain-types/index.js",
+      "import": "./dist/esm/typechain-types/index.js"
+    },
+    "./typechain-types/factories": {
+      "require": "./dist/cjs/typechain-types/factories/index.js",
+      "import": "./dist/esm/typechain-types/factories/index.js"
+    },
+    "./abi/*": "./abi/*.json",
+    "./abi/contracts/*": "./abi/contracts/*.json",
+    "./abi/interfaces/IPaintswapVRFCoordinator.sol/IPaintswapVRFCoordinator.json": "./abi/interfaces/IPaintswapVRFCoordinator.sol/IPaintswapVRFCoordinator.json",
+    "./abi/interfaces/IPaintswapVRFConsumer.sol/IPaintswapVRFConsumer.json": "./abi/interfaces/IPaintswapVRFConsumer.sol/IPaintswapVRFConsumer.json",
+    "./abi/contracts/PaintswapVRFConsumer.sol/PaintswapVRFConsumer.json": "./abi/contracts/PaintswapVRFConsumer.sol/PaintswapVRFConsumer.json",
+    "./contracts/*": "./contracts/*.sol",
+    "./contracts/interfaces/*": "./contracts/interfaces/*.sol",
+    "./contracts/sonic/*": "./contracts/sonic/*.sol",
+    "./contracts/libraries/*": "./contracts/libraries/*.sol"
+  },
+  "scripts": {
+    "abi": "npx hardhat export-abi",
+    "prebuild": "npm run clean && npm run compile && npm run abi",
+    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "build:esm": "tsc -p tsconfig.esm.json",
+    "build": "npm run build:cjs && npm run build:esm",
+    "clean": "rimraf dist docs cache && npx hardhat clean",
+    "compile": "npx hardhat compile",
+    "docs": "npx hardhat dodoc"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "@nomicfoundation/hardhat-ignition": "^0.15.11",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@nomiclabs/hardhat-solhint": "^4.0.1",
+    "@primitivefi/hardhat-dodoc": "^0.2.3",
+    "@typechain/ethers-v6": "^0.5.1",
+    "@typechain/hardhat": "^9.1.0",
+    "@types/node": "^22.15.2",
+    "dotenv": "^16.5.0",
+    "ethers": "^6.13.7",
+    "hardhat": "^2.23.0",
+    "hardhat-abi-exporter": "^2.11.0",
+    "hardhat-contract-sizer": "^2.10.0",
+    "hardhat-deploy": "^1.0.2",
+    "hardhat-storage-layout": "^0.1.7",
+    "prettier": "^3.5.3",
+    "prettier-plugin-solidity": "^1.4.3",
+    "rimraf": "^6.0.1",
+    "shx": "^0.4.0",
+    "solhint": "^5.0.5",
+    "solhint-plugin-prettier": "^0.1.0",
+    "squirrelly": "^9.1.0",
+    "ts-node": "^10.9.2",
+    "typechain": "^8.3.2",
+    "typescript": "^5.8.3"
+  }
+}

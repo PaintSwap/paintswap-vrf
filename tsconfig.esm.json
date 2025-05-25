@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist/esm",
+    "module": "ESNext",
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": false
+  },
+  "exclude": ["dist", "node_modules", "hardhat.config.ts"]
+}
