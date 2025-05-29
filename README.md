@@ -19,6 +19,13 @@ Paintswap VRF is a comprehensive solution for generating verifiable random numbe
 npm install @paintswap/vrf
 ```
 
+## Network Support
+
+| Network       | Chain ID | Status      | VRF Coordinator                              |
+| ------------- | -------- | ----------- | -------------------------------------------- |
+| Blaze Testnet | 57054    | ✅ Live     | `0x63f7B0684E28E6aA48b75b99F94dEa6d25aea646` |
+| Sonic Mainnet | 146      | Coming Soon | `0x...`                                      |
+
 ## Quick Start
 
 ### Using the Consumer Contract
@@ -67,20 +74,16 @@ contract MyContract is PaintswapVRFConsumer {
 ### Using the TypeScript SDK
 
 ```typescript
-import { ethers } from "ethers";
-import { PaintswapVRFCoordinator__factory } from "@paintswap/vrf/typechain-types";
+import {ethers} from "ethers";
+import {PaintswapVRFCoordinator__factory} from "@paintswap/vrf/typechain-types";
 
 // Connect to the VRF Coordinator
 const provider = new ethers.JsonRpcProvider("https://rpc.soniclabs.com");
-const coordinator = PaintswapVRFCoordinator__factory.connect(
-  vrfAddress,
-  provider
-);
+const coordinator = PaintswapVRFCoordinator__factory.connect(vrfAddress, provider);
 
 // Calculate request price
 const callbackGasLimit = 100000;
-const requestPrice =
-  await coordinator.calculateRequestPriceNative(callbackGasLimit);
+const requestPrice = await coordinator.calculateRequestPriceNative(callbackGasLimit);
 
 // Request randomness
 const tx = await coordinator.requestRandomnessPayInNative(callbackGasLimit, 1, {
@@ -88,26 +91,10 @@ const tx = await coordinator.requestRandomnessPayInNative(callbackGasLimit, 1, {
 });
 
 // Listen for fulfillment
-coordinator.on(
-  "RandomWordsFulfilled",
-  (requestId, randomWords, oracle, callSuccess) => {
-    console.log(
-      `Request ${requestId} fulfilled with random words:`,
-      randomWords
-    );
-  }
-);
+coordinator.on("RandomWordsFulfilled", (requestId, randomWords, oracle, callSuccess) => {
+  console.log(`Request ${requestId} fulfilled with random words:`, randomWords);
+});
 ```
-
-## Contract Addresses
-
-### Sonic Mainnet
-
-- **VRF Coordinator**: `0x...` (Coming Soon)
-
-### Blaze Testnet
-
-- **VRF Coordinator**: `0x269e2065CC74B23035ED9aB88d64072F871F2ca8`
 
 ## Contract Imports
 
@@ -115,8 +102,8 @@ This package provides several import paths for different use cases:
 
 ```typescript
 // TypeScript types and factories
-import { PaintswapVRFCoordinator__factory } from "@paintswap/vrf/typechain-types";
-import { PaintswapVRFConsumer__factory } from "@paintswap/vrf/typechain-types";
+import {PaintswapVRFCoordinator__factory} from "@paintswap/vrf/typechain-types";
+import {PaintswapVRFConsumer__factory} from "@paintswap/vrf/typechain-types";
 
 // All factory types
 import * as factories from "@paintswap/vrf/typechain-types/factories";
@@ -164,8 +151,8 @@ interface IPaintswapVRFCoordinator {
     // Oracle fulfillment function
     function fulfillRandomWords(
         uint256 requestId,
-        address fulfillAddress,
-        uint256 gasFeePaid,
+        address consumer,
+        uint256 callbackGasLimit,
         uint256 numWords,
         uint256[2] memory publicKey,
         uint256[4] memory proof,
@@ -255,70 +242,63 @@ error InsufficientGasPayment(uint256 sent, uint256 required);
 error InvalidNumWords(uint256 numWords, uint256 max);
 error CommitmentMismatch(uint256 requestId);
 error InvalidProof(uint256 requestId);
+error InvalidPublicKey(uint256 requestId, address proofSigner, address vrfSigner);
+error OverConsumerGasLimit(uint256 sent, uint256 max);
 ```
 
 ## Gas Considerations
 
-| Operation          | Estimated Gas       | Notes                              |
-| ------------------ | ------------------- | ---------------------------------- |
-| Request (1 word)   | ~100,000            | Base request cost                  |
-| Request (10 words) | ~110,000            | Scales with word count             |
-| Fulfillment        | ~300,000 + callback | Oracle fulfillment + your callback |
+| Operation   | Estimated Gas       | Notes                                  |
+| ----------- | ------------------- | -------------------------------------- |
+| Request     | ~70,000             | Creates commitment and emits event     |
+| Fulfillment | ~300,000 + callback | VRF proof verification + your callback |
+
+### How It Works
+
+1. **Request Phase**: Your contract calls `requestRandomnessPayInNative()` which:
+
+   - Creates a unique commitment hash for the request
+   - Emits a `RandomWordsRequested` event that oracles monitor
+   - Uses approximately 70,000 gas for the transaction
+
+2. **Oracle Processing**: Oracles detect the request event and:
+
+   - Calculate the VRF proof off-chain using cryptographic algorithms
+   - Submit a fulfillment transaction with the proof
+
+3. **Fulfillment Phase**: The oracle calls `fulfillRandomWords()` which:
+   - Verifies the oracle's signature matches the registered signer
+   - Validates the VRF proof cryptographically on-chain
+   - Generates random words from the verified proof
+   - Calls your contract's callback with the random words
+   - Can only be called once per unique commitment hash
 
 ### Gas Limit Guidelines
 
-- **Minimum callback gas**: 40,000 (system requirement)
-- **Recommended callback gas**: 100,000+ (for most applications)
-- **Maximum callback gas**: 2,500,000 (system limit)
+- **Minimum callback gas**: 5,000 (system requirement)
+- **Maximum callback gas**: 6,000,000 (system limit)
+- **Maximum words per request**: 500 (system limit)
 
-## Security Model
+### Cost Calculation
 
-### VRF Proofs
+The cost of a VRF request is calculated as:
 
-All randomness is cryptographically verifiable using VRF proofs. The system ensures that:
-
-- Oracles cannot predict or manipulate random outputs
-- Random values are deterministic and verifiable
-- Failed proofs are rejected by the coordinator
-
-### Oracle Network
-
-- Only registered oracles can fulfill requests
-- Multiple oracles provide redundancy and decentralization
-- Oracle selection is based on availability and reputation
-
-### Payment Model
-
-- Requests must include sufficient payment for gas costs
-- Payments are calculated based on current gas prices
-- Failed callbacks don't affect oracle payments
-
-## Network Support
-
-| Network       | Chain ID | Status         | VRF Coordinator                              |
-| ------------- | -------- | -------------- | -------------------------------------------- |
-| Sonic Mainnet | 146      | Coming Soon    | `0x...`                                      |
-| Blaze Testnet | 57054    | ✅ Live        | `0x269e2065CC74B23035ED9aB88d64072F871F2ca8` |
-| Local Hardhat | 31337    | ✅ Development | Deployed locally                             |
-
-## Development
-
-### Building from Source
-
-```bash
-git clone https://github.com/paintswap/paintswap-vrf
-cd paintswap-vrf
-npm install
-npm run build
+```
+Cost = (callbackGasLimit + 300,000) × averageGasPrice
 ```
 
-### Documentation
+Where:
 
-Full contract documentation is generated automatically and available in the `docs/` directory.
+- `callbackGasLimit` is the gas you allocate for your callback function
+- `300,000` is the fixed VRF processing overhead for proof verification
+- `averageGasPrice` is determined from recent fulfillment transactions
 
-## License
+### Security Guarantees
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- Each request has a unique commitment hash that prevents replay attacks
+- VRF proofs are mathematically verifiable and cannot be forged
+- Only registered oracles with valid signatures can fulfill requests
+- Failed callbacks don't affect the randomness generation or oracle payments
 
 ## Support
 
