@@ -11,15 +11,18 @@ interface IPaintswapVRFCoordinator {
     uint256 indexed requestId,
     uint256 callbackGasLimit,
     uint256 numWords,
+    address indexed origin,
     address indexed consumer,
-    uint256 nonce
+    uint256 nonce,
+    uint256 requestedAt
   );
   /// @dev Emitted when PaintswapVRFCoordinator fulfills a request
   event RandomWordsFulfilled(
     uint256 indexed requestId,
     uint256[] randomWords,
     address indexed oracle,
-    bool callSuccess
+    bool callSuccess,
+    uint256 fulfilledAt
   );
   /// @dev Emitted when a consumer callback is not successful
   event ConsumerCallbackFailed(

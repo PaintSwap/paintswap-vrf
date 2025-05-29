@@ -183,7 +183,7 @@ event RandomRequestLimitsUpdated(uint32 minimumGasLimit, uint32 maximumGasLimit,
 ### RandomWordsFulfilled
 
 ```solidity
-event RandomWordsFulfilled(uint256 indexed requestId, uint256[] randomWords, address indexed oracle, bool callSuccess)
+event RandomWordsFulfilled(uint256 indexed requestId, uint256[] randomWords, address indexed oracle, bool callSuccess, uint256 fulfilledAt)
 ```
 
 
@@ -198,11 +198,12 @@ event RandomWordsFulfilled(uint256 indexed requestId, uint256[] randomWords, add
 | randomWords  | uint256[] | undefined |
 | oracle `indexed` | address | undefined |
 | callSuccess  | bool | undefined |
+| fulfilledAt  | uint256 | undefined |
 
 ### RandomWordsRequested
 
 ```solidity
-event RandomWordsRequested(uint256 indexed requestId, uint256 callbackGasLimit, uint256 numWords, address indexed consumer, uint256 nonce)
+event RandomWordsRequested(uint256 indexed requestId, uint256 callbackGasLimit, uint256 numWords, address indexed origin, address indexed consumer, uint256 nonce, uint256 requestedAt)
 ```
 
 
@@ -216,8 +217,10 @@ event RandomWordsRequested(uint256 indexed requestId, uint256 callbackGasLimit, 
 | requestId `indexed` | uint256 | undefined |
 | callbackGasLimit  | uint256 | undefined |
 | numWords  | uint256 | undefined |
+| origin `indexed` | address | undefined |
 | consumer `indexed` | address | undefined |
 | nonce  | uint256 | undefined |
+| requestedAt  | uint256 | undefined |
 
 ### SignerAddressUpdated
 
