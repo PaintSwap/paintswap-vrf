@@ -51,8 +51,10 @@ contract MyContract is PaintswapVRFConsumer {
         uint256 requestPrice = _calculateRequestPriceNative(CALLBACK_GAS_LIMIT);
         require(msg.value >= requestPrice, "Insufficient payment");
 
+        uint256 numberOfWords = 1; // 1-500 words may be requesed
+
         // Request one random number
-        requestId = _requestRandomnessPayInNative(CALLBACK_GAS_LIMIT, 1, requestPrice);
+        requestId = _requestRandomnessPayInNative(CALLBACK_GAS_LIMIT, numberOfWords, requestPrice);
 
         // Store the user for this request
         requestToUser[requestId] = msg.sender;
