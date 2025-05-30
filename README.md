@@ -74,27 +74,72 @@ contract MyContract is PaintswapVRFConsumer {
 ### Using the TypeScript SDK
 
 ```typescript
-import {ethers} from "ethers";
-import {PaintswapVRFCoordinator__factory} from "@paintswap/vrf/typechain-types";
+import { ethers } from "ethers";
+import { PaintswapVRFCoordinator__factory } from "@paintswap/vrf/typechain-types";
+
+// Replace with your actual VRF Coordinator address
+const vrfAddress = "0xVRF_COORDINATOR_ADDRESS";
 
 // Connect to the VRF Coordinator
 const provider = new ethers.JsonRpcProvider("https://rpc.soniclabs.com");
-const coordinator = PaintswapVRFCoordinator__factory.connect(vrfAddress, provider);
+const coordinator = PaintswapVRFCoordinator__factory.connect(
+  vrfAddress,
+  provider,
+);
+
+// Listen for fulfillments.
+coordinator.on(
+  coordinator.filters.RandomWordsFulfilled,
+  (
+    requestId,
+    randomWords,
+    oracle,
+    callSuccess,
+    fulfilledAtBI,
+    eventPayload,
+  ) => {
+    console.log(
+      `Request ${requestId} fulfilled at ts ${fulfilledAt}:`,
+      randomWords,
+    );
+  },
+);
 
 // Calculate request price
 const callbackGasLimit = 100000;
-const requestPrice = await coordinator.calculateRequestPriceNative(callbackGasLimit);
+const requestPrice =
+  await coordinator.calculateRequestPriceNative(callbackGasLimit);
 
 // Request randomness
 const tx = await coordinator.requestRandomnessPayInNative(callbackGasLimit, 1, {
   value: requestPrice,
 });
 
-// Listen for fulfillment
-coordinator.on("RandomWordsFulfilled", (requestId, randomWords, oracle, callSuccess) => {
-  console.log(`Request ${requestId} fulfilled with random words:`, randomWords);
-});
+console.log(`Transaction hash: ${tx.hash}`);
+
+// Wait for the transaction to be mined
+const receipt = await tx.wait();
+
+// Extract the request ID from the RandomWordsRequested event
+const requestedEvent = receipt.logs.find(
+  (log) =>
+    log.topics[0] ===
+    coordinator.interface.getEvent("RandomWordsRequested").topicHash,
+);
+
+if (requestedEvent) {
+  const decodedEvent = coordinator.interface.parseLog(requestedEvent);
+  const requestId = decodedEvent.args.requestId;
+  console.log(`Request ID: ${requestId}`);
+
+  // You can now use this request ID to track the fulfillment,
+  // query events using a filter, get the request status, etc.
+} else {
+  console.error("RandomWordsRequested event not found in transaction receipt");
+}
 ```
+
+````
 
 ## Contract Imports
 
@@ -104,12 +149,11 @@ _Typescript_
 
 ```typescript
 // TypeScript types and factories
-import {PaintswapVRFCoordinator__factory} from "@paintswap/vrf/typechain-types";
-import {PaintswapVRFConsumer__factory} from "@paintswap/vrf/typechain-types";
+import { PaintswapVRFConsumer__factory } from "@paintswap/vrf/typechain-types";
 
 // All factory types
 import * as factories from "@paintswap/vrf/typechain-types/factories";
-```
+````
 
 _Solidity contracts_
 
@@ -125,11 +169,15 @@ _ABI files_
 ```json
 {
   "imports": [
-    "@paintswap/vrf/abi/contracts/PaintswapVRFCoordinator.sol/PaintswapVRFCoordinator.json",
-    "@paintswap/vrf/abi/interfaces/IPaintswapVRFCoordinator.sol/IPaintswapVRFCoordinator.json",
-    "@paintswap/vrf/abi/interfaces/IPaintswapVRFConsumer.sol/IPaintswapVRFConsumer.json"
+    "@paintswap/vrf/abi/contracts/PaintswapVRFConsumer.sol/PaintswapVRFConsumer.json",
+    "@paintswap/vrf/abi/contracts/interfaces/IPaintswapVRFCoordinator.sol/IPaintswapVRFCoordinator.json",
+    "@paintswap/vrf/abi/contracts/interfaces/IPaintswapVRFConsumer.sol/IPaintswapVRFConsumer.json"
   ]
 }
+```
+
+```typescript
+import PaintswapVRFConsumerABI from "@paintswap/vrf/abi/contracts/PaintswapVRFConsumer.sol/PaintswapVRFConsumer.json" with { type: "json" };
 ```
 
 ## API Reference
@@ -155,8 +203,8 @@ interface IPaintswapVRFCoordinator {
     // Oracle fulfillment function
     function fulfillRandomWords(
         uint256 requestId,
-        address consumer,
-        uint256 callbackGasLimit,
+        address fulfillAddress, // Address of the consumer contract
+        uint256 gasFeePaid,     // Actual gas fee paid by the oracle for fulfillment
         uint256 numWords,
         uint256[2] memory publicKey,
         uint256[4] memory proof,
@@ -177,7 +225,7 @@ abstract contract PaintswapVRFConsumer {
     function _requestRandomnessPayInNative(
         uint256 callbackGasLimit,
         uint256 numWords,
-        uint256 value
+        uint256 value // The payment amount, should match calculated price
     ) internal returns (uint256 requestId);
 
     // Calculate the cost of a request
@@ -190,7 +238,10 @@ abstract contract PaintswapVRFConsumer {
 
     // Callback from coordinator (do not override)
     function rawFulfillRandomWords(uint256 requestId, uint256[] calldata randomWords)
-        external override onlyCoordinator;
+        external virtual override; // IPaintswapVRFConsumer.rawFulfillRandomWords
+        // Modifier like 'onlyCoordinator' is an implementation detail of PaintswapVRFConsumer,
+        // not part of the IPaintswapVRFConsumer interface itself.
+        // The actual PaintswapVRFConsumer.sol has 'onlyCoordinator'.
 }
 ```
 
@@ -200,13 +251,13 @@ abstract contract PaintswapVRFConsumer {
 
 ```solidity
 event RandomWordsRequested(
-    uint256 indexed requestId,
-    uint256 callbackGasLimit,
-    uint256 numWords,
-    address indexed origin,
-    address indexed consumer,
-    uint256 nonce,
-    uint256 requestedAt
+    uint256 indexed requestId, // Unique request ID
+    uint256 callbackGasLimit,  // Amount of gas for callback (5k-6m)
+    uint256 numWords,          // Number of random words (<500)
+    address indexed origin,    // Address that initiated the VRF request
+    address indexed consumer,  // The consumer contract that will receive the callback
+    uint256 nonce,             // Consumer nonce for this request
+    uint256 requestedAt        // Timestamp of the request
 );
 ```
 
@@ -214,11 +265,11 @@ event RandomWordsRequested(
 
 ```solidity
 event RandomWordsFulfilled(
-    uint256 indexed requestId,
-    uint256[] randomWords,
-    address indexed oracle,
-    bool callSuccess,
-    uint256 fulfilledAt
+    uint256 indexed requestId, // Unique request ID
+    uint256[] randomWords,     // Random words generated
+    address indexed oracle,    // Oracle that processed the request
+    bool callSuccess,          // Consumer callback succeeded?
+    uint256 fulfilledAt        // Timestamp of the fulfillment
 );
 ```
 
@@ -227,21 +278,26 @@ event RandomWordsFulfilled(
 ```solidity
 event ConsumerCallbackFailed(
     uint256 indexed requestId,
-    uint8 indexed reason, // 1 = not enough gas, 2 = no code, 3 = reverted or out of gas
-    address indexed target,
-    uint256 gasLeft
+    // Reason 1 = NotEnoughGas,
+    // Reason 2 = NoCodeAtAddress,
+    // Reason 3 = RevertedOrOutOfGas
+    uint8 indexed reason,
+    address indexed target,   // The consumer contract address
+    uint256 gasLeft           // Gas remaining after the failed callback
 );
 ```
+
+(Note: Other events like `OracleRegistered`, `SignerAddressUpdated`, `GasPriceHistoryWindowUpdated`, `RandomRequestLimitsUpdated` are part of `IPaintswapVRFCoordinator` but are more for administrative/operational purposes and not typically directly interacted with by consumers.)
 
 ## Error Handling
 
 The VRF system includes comprehensive error handling:
 
 ```solidity
-// Consumer errors
+// Consumer errors (from PaintswapVRFConsumer.sol)
 error OnlyVRFCoordinator(address sender, address coordinator);
 
-// Coordinator errors
+// Coordinator errors (from IPaintswapVRFCoordinator.sol)
 error ZeroAddress();
 error NotOracle(address invalid);
 error InsufficientGasLimit(uint256 sent, uint256 required);
@@ -251,61 +307,65 @@ error CommitmentMismatch(uint256 requestId);
 error InvalidProof(uint256 requestId);
 error InvalidPublicKey(uint256 requestId, address proofSigner, address vrfSigner);
 error OverConsumerGasLimit(uint256 sent, uint256 max);
+error FundingFailed(address oracle, uint256 amount);
+error InsufficientOracleBalance(address oracle, uint256 balance);
+error InvalidGasPriceHistoryWindow(uint256 window);
+error OracleAlreadyRegistered(address oracle);
+error WithdrawFailed(address recipient, uint256 amount);
 ```
 
 ## Gas Considerations
 
-| Operation   | Estimated Gas       | Notes                                  |
-| ----------- | ------------------- | -------------------------------------- |
-| Request     | ~70,000             | Creates commitment and emits event     |
-| Fulfillment | ~300,000 + callback | VRF proof verification + your callback |
+| Operation   | Estimated Gas                 | Notes                                  |
+| ----------- | ----------------------------- | -------------------------------------- |
+| Request     | ~70,000 - 90,000              | Creates commitment and emits event     |
+| Fulfillment | ~250,000 - 350,000 + callback | VRF proof verification + your callback |
+
+(Gas estimates can vary based on network conditions and specific parameters.)
 
 ### How It Works
 
-1. **Request Phase**: Your contract calls `requestRandomnessPayInNative()` which:
+1.  **Request Phase**: Your contract calls `_requestRandomnessPayInNative()` (if using `PaintswapVRFConsumer`) or `requestRandomnessPayInNative()` (if interacting directly with `IPaintswapVRFCoordinator`). This:
 
-   - Creates a unique commitment hash for the request
-   - Emits a `RandomWordsRequested` event that oracles monitor
-   - Uses approximately 70,000 gas for the transaction
+    - Creates a unique commitment hash for the request.
+    - Emits a `RandomWordsRequested` event that oracles monitor.
+    - Uses gas for these operations.
 
-2. **Oracle Processing**: Oracles detect the request event and:
+2.  **Oracle Processing**: Oracles detect the `RandomWordsRequested` event and:
 
-   - Calculate the VRF proof off-chain using cryptographic algorithms
-   - Submit a fulfillment transaction with the proof
+    - Calculate the VRF proof off-chain using cryptographic algorithms.
+    - Submit a fulfillment transaction with the proof to the coordinator.
 
-3. **Fulfillment Phase**: The oracle calls `fulfillRandomWords()` which:
-   - Verifies the oracle's signature matches the registered signer
-   - Validates the VRF proof cryptographically on-chain
-   - Generates random words from the verified proof
-   - Calls your contract's callback with the random words
-   - Can only be called once per unique commitment hash
+3.  **Fulfillment Phase**: The oracle calls `fulfillRandomWords()` on the coordinator contract, which:
+    - Verifies the oracle's identity and permissions.
+    - Validates the VRF proof cryptographically on-chain.
+    - Generates random words from the verified proof.
+    - Calls your consumer contract's `rawFulfillRandomWords` function (which in `PaintswapVRFConsumer` then calls your `_fulfillRandomWords` implementation) with the random words.
+    - Ensures that a request can only be fulfilled once.
 
 ### Gas Limit Guidelines
 
-- **Minimum callback gas**: 5,000 (system requirement)
-- **Maximum callback gas**: 6,000,000 (system limit)
-- **Maximum words per request**: 500 (system limit)
+- **Minimum callback gas**: As defined by `minimumGasLimit` in `RandomRequestLimitsUpdated` event (e.g., 5,000).
+- **Maximum callback gas**: As defined by `maximumGasLimit` in `RandomRequestLimitsUpdated` event (e.g., 6,000,000).
+- **Maximum words per request**: As defined by `maxNumWords` in `RandomRequestLimitsUpdated` event (e.g., 500).
 
 ### Cost Calculation
 
-The cost of a VRF request is calculated as:
-
-```
-Cost = (callbackGasLimit + 300,000) × averageGasPrice
-```
+The cost of a VRF request is calculated by the `calculateRequestPriceNative(callbackGasLimit)` function in the coordinator. This typically involves:
+`Cost = (BaseGasForFulfillment + callbackGasLimit) * EffectiveGasPrice`
 
 Where:
 
-- `callbackGasLimit` is the gas you allocate for your callback function
-- `300,000` is the fixed VRF processing overhead for proof verification
-- `averageGasPrice` is determined from recent fulfillment transactions
+- `BaseGasForFulfillment` is the gas overhead for the coordinator to verify the proof and manage the fulfillment (e.g., ~250,000-350,000).
+- `callbackGasLimit` is the gas you allocate for your callback function.
+- `EffectiveGasPrice` is a gas price determined by the coordinator, potentially based on recent network conditions or oracle costs.
 
 ### Security Guarantees
 
-- Each request has a unique commitment hash that prevents replay attacks
-- VRF proofs are mathematically verifiable and cannot be forged
-- Only registered oracles with valid signatures can fulfill requests
-- Failed callbacks don't affect the randomness generation or oracle payments
+- Each request has a unique commitment hash that prevents replay attacks and ensures the randomness corresponds to the specific request.
+- VRF proofs are mathematically verifiable and cannot be forged by oracles or users.
+- Only registered oracles with valid cryptographic signatures can fulfill requests.
+- Failed consumer callbacks (e.g., due to out-of-gas in the consumer's `_fulfillRandomWords`) do not affect the randomness generation process or the oracle's ability to get paid for a valid fulfillment. The `callSuccess` flag in `RandomWordsFulfilled` event indicates the callback status.
 
 ## Support
 
