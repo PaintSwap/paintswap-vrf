@@ -21,10 +21,10 @@ npm install @paintswap/vrf
 
 ## Network Support
 
-| Network       | Chain ID | Status      | VRF Coordinator                              |
-| ------------- | -------- | ----------- | -------------------------------------------- |
-| Blaze Testnet | 57054    | ✅ Live     | `0x63f7B0684E28E6aA48b75b99F94dEa6d25aea646` |
-| Sonic Mainnet | 146      | Coming Soon | `0x...`                                      |
+| Network       | Chain ID | VRF Coordinator                              |
+| ------------- | -------- | -------------------------------------------- |
+| Sonic Mainnet | 146      | `0xcCD87C20Dc14ED79c1F827800b5a9b8Ef2E43eC5` |
+| Blaze Testnet | 57054    | `0xcCD87C20Dc14ED79c1F827800b5a9b8Ef2E43eC5` |
 
 ## Quick Start
 
