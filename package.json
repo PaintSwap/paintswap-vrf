@@ -1,7 +1,17 @@
 {
   "name": "@paintswap/vrf",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Paintswap VRF",
+  "keywords": [
+    "paintswap",
+    "vrf",
+    "blockchain",
+    "smart-contracts",
+    "sonic",
+    "solidity",
+    "rng",
+    "random-number-generator"
+  ],
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",

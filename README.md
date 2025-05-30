@@ -56,9 +56,8 @@ contract MyContract is PaintswapVRFConsumer {
         uint256 requestPrice = _calculateRequestPriceNative(CALLBACK_GAS_LIMIT);
         require(msg.value >= requestPrice, InsufficientPayment());
 
-        uint256 numberOfWords = 1; // 1-500 words may be requesed
-
         // Request one random number
+        uint256 numberOfWords = 1; // 1-500 words may be requested
         requestId = _requestRandomnessPayInNative(CALLBACK_GAS_LIMIT, numberOfWords, requestPrice);
 
         // Store the user for this request
@@ -97,16 +96,16 @@ const coordinator = PaintswapVRFCoordinator__factory.connect(
 coordinator.on(
   coordinator.filters.RandomWordsFulfilled,
   (
-    requestId,
+    requestIdBI, // BigInt
     randomWords,
     oracle,
     callSuccess,
-    fulfilledAtBI, // Note: This is a BigInt, convert to number/string if needed for display
-    // eventPayload, // This argument might not be present or could be part of a more detailed event object
+    fulfilledAtBI, // BigInt
+    // eventPayload,
   ) => {
-    const fulfilledAt = fulfilledAtBI.toString(); // Example conversion
+    const fulfilledAtMs = Number(fulfilledAtBI) * 1000;
     console.log(
-      `Request ${requestId} fulfilled at ts ${fulfilledAt}:`,
+      `Request ${requestId} fulfilled at ts ${fulfilledAtMs}:`,
       randomWords,
     );
   },
@@ -118,10 +117,14 @@ const requestPrice =
   await coordinator.calculateRequestPriceNative(callbackGasLimit);
 
 // Request randomness
-const tx = await coordinator.requestRandomnessPayInNative(callbackGasLimit, 1, {
-  // Requesting 1 word
-  value: requestPrice,
-});
+const numberOfWords = 2;
+const tx = await coordinator.requestRandomnessPayInNative(
+  callbackGasLimit,
+  numberOfWords,
+  {
+    value: requestPrice,
+  },
+);
 
 console.log(`Transaction hash: ${tx.hash}`);
 
