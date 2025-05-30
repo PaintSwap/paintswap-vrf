@@ -35,7 +35,7 @@ Calculate the payment for a given amount of gas using native currency
 ### fulfillRandomWords
 
 ```solidity
-function fulfillRandomWords(uint256 requestId, address fulfillAddress, uint256 gasFeePaid, uint256 numWords, uint256[2] publicKey, uint256[4] proof, uint256[2] uPoint, uint256[4] vComponents, uint8 proofCtr) external nonpayable returns (bool callSuccess)
+function fulfillRandomWords(uint256 requestId, address consumer, uint256 callbackGasLimit, uint256 numWords, uint256[2] publicKey, uint256[4] proof, uint256[2] uPoint, uint256[4] vComponents, uint8 proofCtr) external nonpayable returns (bool callSuccess)
 ```
 
 Fulfill the request for random words
@@ -47,8 +47,8 @@ Fulfill the request for random words
 | Name | Type | Description |
 |---|---|---|
 | requestId | uint256 | The ID of the request |
-| fulfillAddress | address | The address to fulfill the request |
-| gasFeePaid | uint256 | The amount of gas fees paid to fulfill the request |
+| consumer | address | The amount of gas fees paid to fulfill the request |
+| callbackGasLimit | uint256 | undefined |
 | numWords | uint256 | The number of words to fulfill |
 | publicKey | uint256[2] | The public key of the oracle |
 | proof | uint256[4] | The proof of the random words |

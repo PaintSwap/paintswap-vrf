@@ -27,7 +27,7 @@ npm install @paintswap/vrf
 
 | Network       | Chain ID | VRF Coordinator                              |
 | ------------- | -------- | -------------------------------------------- |
-| Sonic Mainnet | 146      | `0xcCD87C20Dc14ED79c1F827800b5a9b8Ef2E43eC5` |
+| Sonic Mainnet | 146      | Coming soon                                  |
 | Blaze Testnet | 57054    | `0xcCD87C20Dc14ED79c1F827800b5a9b8Ef2E43eC5` |
 
 ## Quick Start
@@ -214,8 +214,8 @@ interface IPaintswapVRFCoordinator {
     // Oracle fulfillment function
     function fulfillRandomWords(
         uint256 requestId,
-        address fulfillAddress, // Address of the consumer contract
-        uint256 gasFeePaid,     // Actual gas fee paid by the oracle for fulfillment
+        address consumer,
+        uint256 callbackGasLimit,
         uint256 numWords,
         uint256[2] memory publicKey,
         uint256[4] memory proof,
