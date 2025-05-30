@@ -34,7 +34,7 @@ npm install @paintswap/vrf
 
 ```solidity
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.30;
 
 import "@paintswap/vrf/contracts/PaintswapVRFConsumer.sol";
 
@@ -164,7 +164,7 @@ import * as factories from "@paintswap/vrf/typechain-types/factories";
 _Solidity contracts_
 
 ```solidity
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.30;
 import "@paintswap/vrf/contracts/PaintswapVRFConsumer.sol";
 import "@paintswap/vrf/contracts/interfaces/IPaintswapVRFCoordinator.sol";
 import "@paintswap/vrf/contracts/interfaces/IPaintswapVRFConsumer.sol";
@@ -422,7 +422,7 @@ npm install @paintswap/vrf
 
 ```solidity
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.30;
 
 import "@paintswap/vrf/contracts/PaintswapVRFConsumer.sol";
 
@@ -552,7 +552,7 @@ import * as factories from "@paintswap/vrf/typechain-types/factories";
 _Solidity contracts_
 
 ```solidity
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.30;
 import "@paintswap/vrf/contracts/PaintswapVRFConsumer.sol";
 import "@paintswap/vrf/contracts/interfaces/IPaintswapVRFCoordinator.sol";
 import "@paintswap/vrf/contracts/interfaces/IPaintswapVRFConsumer.sol";
