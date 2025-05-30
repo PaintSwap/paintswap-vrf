@@ -100,6 +100,8 @@ coordinator.on("RandomWordsFulfilled", (requestId, randomWords, oracle, callSucc
 
 This package provides several import paths for different use cases:
 
+_Typescript_
+
 ```typescript
 // TypeScript types and factories
 import {PaintswapVRFCoordinator__factory} from "@paintswap/vrf/typechain-types";
@@ -109,16 +111,18 @@ import {PaintswapVRFConsumer__factory} from "@paintswap/vrf/typechain-types";
 import * as factories from "@paintswap/vrf/typechain-types/factories";
 ```
 
+_Solidity contracts_
+
 ```solidity
-// Solidity contracts
 pragma solidity ^0.8.20;
 import "@paintswap/vrf/contracts/PaintswapVRFConsumer.sol";
 import "@paintswap/vrf/contracts/interfaces/IPaintswapVRFCoordinator.sol";
 import "@paintswap/vrf/contracts/interfaces/IPaintswapVRFConsumer.sol";
 ```
 
+_ABI files_
+
 ```json
-// ABI files
 {
   "imports": [
     "@paintswap/vrf/abi/contracts/PaintswapVRFCoordinator.sol/PaintswapVRFCoordinator.json",
