@@ -630,12 +630,12 @@ abstract contract PaintswapVRFConsumer {
     function _fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords)
         internal virtual;
 
-    // Callback from coordinator (do not override)
+    // Callback from coordinator
     function rawFulfillRandomWords(uint256 requestId, uint256[] calldata randomWords)
         external virtual override;
         // Used by PaintswapVRFConsumer to fulfill request with authorization
-        // to ensure calls are from the PaintswapVRFCoordinator only. This function
-        // should not be overridden.
+        // to ensure calls are from the PaintswapVRFCoordinator only. Care should
+        // be taken when overriding this function.
 }
 ```
 
