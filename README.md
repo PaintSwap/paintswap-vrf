@@ -4,6 +4,8 @@
 
 A decentralized Verifiable Random Function (VRF) service for the Sonic ecosystem, providing secure and verifiable on-chain randomness for smart contracts.
 
+Paintswap VRF Dashboard: [https://vrf.paintswap.io](https://vrf.paintswap.io)
+
 ## Overview
 
 Paintswap VRF is a comprehensive solution for generating verifiable random numbers on-chain. It consists of a coordinator contract that manages randomness requests and oracle fulfillments, along with consumer contracts that can request and receive random numbers.
