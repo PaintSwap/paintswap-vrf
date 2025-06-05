@@ -7,5 +7,5 @@
     "declarationMap": true,
     "emitDeclarationOnly": false
   },
-  "exclude": ["dist", "node_modules", "hardhat.config.ts"]
+  "exclude": ["dist", "test", "node_modules", "hardhat.config.ts"]
 }

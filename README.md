@@ -16,6 +16,8 @@ Paintswap VRF is a comprehensive solution for generating verifiable random numbe
 - ✅ **Oracle Network**: Distributed oracle system for reliable fulfillment
 - ✅ **Gas Efficient**: Optimized for low-cost operations on Sonic
 - ✅ **TypeScript Support**: Full type definitions included
+- ✅ **Development Tools**: Mock contracts and examples for testing
+- ✅ **Battle Tested**: Comprehensive test suite with full coverage
 
 ## Installation
 
@@ -36,7 +38,7 @@ npm install @paintswap/vrf
 
 ```solidity
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.30;
+pragma solidity ^0.8.20;
 
 import "@paintswap/vrf/contracts/PaintswapVRFConsumer.sol";
 
@@ -59,7 +61,7 @@ contract MyContract is PaintswapVRFConsumer {
         require(msg.value >= requestPrice, InsufficientPayment());
 
         // Request one random number
-        uint256 numberOfWords = 1; // 1-500 words may be requested
+        uint256 numberOfWords = 1;
         requestId = _requestRandomnessPayInNative(CALLBACK_GAS_LIMIT, numberOfWords, requestPrice);
 
         // Store the user for this request
@@ -83,7 +85,7 @@ contract MyContract is PaintswapVRFConsumer {
 
 ```typescript
 import { ethers } from "ethers";
-import { PaintswapVRFCoordinator__factory } from "@paintswap/vrf/typechain-types";
+import { PaintswapVRFCoordinator__factory } from "@paintswap/vrf";
 
 const vrfAddress = "0xcCD87C20Dc14ED79c1F827800b5a9b8Ef2E43eC5";
 
@@ -94,20 +96,13 @@ const coordinator = PaintswapVRFCoordinator__factory.connect(
   provider,
 );
 
-// Listen for fulfillments.
+// Listen for fulfillments
 coordinator.on(
   coordinator.filters.RandomWordsFulfilled,
-  (
-    requestIdBI, // BigInt
-    randomWords,
-    oracle,
-    callSuccess,
-    fulfilledAtBI, // BigInt
-    // eventPayload,
-  ) => {
-    const fulfilledAtMs = Number(fulfilledAtBI) * 1000;
+  (requestId, randomWords, oracle, callSuccess, fulfilledAt) => {
+    const fulfilledAtMs = Number(fulfilledAt) * 1000;
     console.log(
-      `Request ${requestId} fulfilled at ts ${fulfilledAtMs}:`,
+      `Request ${requestId} fulfilled at ${fulfilledAtMs}:`,
       randomWords,
     );
   },
@@ -123,12 +118,8 @@ const numberOfWords = 2;
 const tx = await coordinator.requestRandomnessPayInNative(
   callbackGasLimit,
   numberOfWords,
-  {
-    value: requestPrice,
-  },
+  { value: requestPrice },
 );
-
-console.log(`Transaction hash: ${tx.hash}`);
 
 // Wait for the transaction to be mined
 const receipt = await tx.wait();
@@ -144,58 +135,142 @@ if (requestedEvent) {
   const decodedEvent = coordinator.interface.parseLog(requestedEvent);
   const requestId = decodedEvent.args.requestId;
   console.log(`Request ID: ${requestId}`);
-
-  // You can now use this request ID to track the fulfillment,
-  // query events using a filter, get the request status, etc.
 } else {
-  console.error("RandomWordsRequested event not found in transaction receipt");
+  console.error("RandomWordsRequested event not found");
 }
+```
+
+## Development & Testing
+
+### MockPaintswapVRFCoordinator
+
+For development and testing, use the `MockPaintswapVRFCoordinator` which simulates the VRF coordinator without requiring cryptographic proofs or oracle networks. **Important: The mock coordinator should only be used in your test files, not in your production consumer contracts.**
+
+#### Basic Testing Setup
+
+```typescript
+// test/MyContract.test.ts
+import { expect } from "chai";
+import { ethers } from "hardhat";
+import { MockPaintswapVRFCoordinator } from "@paintswap/vrf";
+import { MyContract } from "../typechain-types";
+
+describe("MyContract", function () {
+  let mockCoordinator: MockPaintswapVRFCoordinator;
+  let myContract: MyContract;
+
+  beforeEach(async function () {
+    // Deploy mock coordinator in your test
+    const MockCoordinator = await ethers.getContractFactory(
+      "MockPaintswapVRFCoordinator",
+    );
+    mockCoordinator = await MockCoordinator.deploy();
+
+    // Deploy your consumer contract with the mock coordinator address
+    const MyContract = await ethers.getContractFactory("MyContract");
+    myContract = await MyContract.deploy(await mockCoordinator.getAddress());
+  });
+
+  it("should handle randomness request and fulfillment", async function () {
+    // Calculate fee and make request
+    const fee = await mockCoordinator.calculateRequestPriceNative(100_000);
+    const tx = await myContract.requestRandomness({ value: fee });
+    const receipt = await tx.wait();
+
+    // Extract request ID from event
+    const event = receipt.logs.find(
+      (log) =>
+        log.topics[0] ===
+        myContract.interface.getEvent("RandomnessRequested").topicHash,
+    );
+    const requestId = myContract.interface.parseLog(event).args.requestId;
+
+    // Manually fulfill the request in the test
+    await mockCoordinator.fulfillRequestMock(requestId, [123n]);
+
+    // Verify that your contract processed the randomness
+  });
+});
+```
+
+#### Mock Coordinator Features
+
+- **Manual Fulfillment**: Use `fulfillRequestMock(requestId, randomWords)` to manually fulfill requests
+- **Auto-Random Fulfillment**: Use `fulfillRequestMockWithRandomWords(requestId)` to fulfill with pseudo-random data
+- **Request Tracking**: Get request details with `getRequest(requestId)` and `getRequestResult(requestId)`
+- **Statistics**: Monitor requests and fulfillments with `getFulfillmentStats()`
+- **Debug Events**: Detailed `DebugFulfillment` events for callback failure analysis
+- **Request ID Prediction**: Use `calculateNextRequestId(consumer)` to predict request IDs
+
+#### Advanced Testing Functions
+
+```typescript
+// Get detailed request information
+const [consumer, gasLimit, words, payment, fulfilled] =
+  await mockCoordinator.getRequest(requestId);
+
+// Check request results with detailed status
+const [wasSuccess, wasFulfilled] =
+  await mockCoordinator.getRequestResult(requestId);
+
+// Get comprehensive fulfillment statistics
+const [total, pending, successes, failures, totalWordsRequested] =
+  await mockCoordinator.getFulfillmentStats();
+
+// Predict request IDs for testing
+const predictedRequestId =
+  await mockCoordinator.calculateNextRequestId(consumerAddress);
+```
+
+### ExamplePaintswapVRFConsumer
+
+The `ExamplePaintswapVRFConsumer` demonstrates best practices for implementing VRF functionality with dual payment methods, request management, and utility functions.
+
+```solidity
+import "@paintswap/vrf/contracts/examples/ExamplePaintswapVRFConsumer.sol";
+
+// Deploy the example consumer
+ExamplePaintswapVRFConsumer consumer = new ExamplePaintswapVRFConsumer(coordinatorAddress);
+
+// Fund the contract for requests
+consumer.fundVRF{value: 1 ether}();
+
+// Request randomness with direct payment
+uint256 fee = consumer.getRequestPrice(3);
+uint256 requestId = consumer.requestRandomWords{value: fee}(3);
+
+// Or request using contract funds
+uint256 requestId2 = consumer.requestRandomWordsFromContract(2);
+
+// Check request status
+(bool exists, bool fulfilled, address requester, uint256 numWords, uint256 requestedAt, uint256[] memory randomWords) =
+    consumer.getRequestStatus(requestId);
 ```
 
 ## Contract Imports
 
-This package provides several import paths for different use cases:
-
-_Typescript_
-
 ```typescript
 // TypeScript types and factories
-import { PaintswapVRFConsumer__factory } from "@paintswap/vrf/typechain-types";
-
-// All factory types
-import * as factories from "@paintswap/vrf/typechain-types/factories";
+import { PaintswapVRFConsumer__factory } from "@paintswap/vrf";
+import { MockPaintswapVRFCoordinator__factory } from "@paintswap/vrf";
 ```
 
-_Solidity contracts_
-
 ```solidity
-pragma solidity ^0.8.30;
+pragma solidity ^0.8.20;
+
+// Production contracts
 import "@paintswap/vrf/contracts/PaintswapVRFConsumer.sol";
 import "@paintswap/vrf/contracts/interfaces/IPaintswapVRFCoordinator.sol";
 import "@paintswap/vrf/contracts/interfaces/IPaintswapVRFConsumer.sol";
-```
 
-_ABI files_
-
-```json
-{
-  "imports": [
-    "@paintswap/vrf/abi/contracts/PaintswapVRFConsumer.sol/PaintswapVRFConsumer.json",
-    "@paintswap/vrf/abi/contracts/interfaces/IPaintswapVRFCoordinator.sol/IPaintswapVRFCoordinator.json",
-    "@paintswap/vrf/abi/contracts/interfaces/IPaintswapVRFConsumer.sol/IPaintswapVRFConsumer.json"
-  ]
-}
-```
-
-```typescript
-import PaintswapVRFConsumerABI from "@paintswap/vrf/abi/contracts/PaintswapVRFConsumer.sol/PaintswapVRFConsumer.json" with { type: "json" };
+// Development and testing (only import in test contracts)
+import "@paintswap/vrf/contracts/mocks/MockPaintswapVRFCoordinator.sol";
+import "@paintswap/vrf/contracts/examples/ExamplePaintswapVRFConsumer.sol";
 ```
 
 ## API Reference
 
 ### IPaintswapVRFCoordinator
-
-The main coordinator interface for requesting randomness:
 
 ```solidity
 interface IPaintswapVRFCoordinator {
@@ -210,25 +285,26 @@ interface IPaintswapVRFCoordinator {
     // Check if a request is still pending
     function isRequestPending(uint256 requestId)
         external view returns (bool isPending);
-
-    // Oracle fulfillment function
-    function fulfillRandomWords(
-        uint256 requestId,
-        address consumer,
-        uint256 callbackGasLimit,
-        uint256 numWords,
-        uint256[2] memory publicKey,
-        uint256[4] memory proof,
-        uint256[2] memory uPoint,
-        uint256[4] memory vComponents,
-        uint8 proofCtr
-    ) external returns (bool callSuccess);
 }
 ```
 
-### PaintswapVRFConsumer
+IPaintswapVRFCoordinator Docs: [docs/interfaces/IPaintswapVRFCoordinator.md](docs/interfaces/IPaintswapVRFCoordinator.md)
 
-Abstract base contract for consuming randomness:
+### IPaintswapVRFConsumer
+
+```solidity
+interface IPaintswapVRFConsumer {
+    // Handle VRF response - must be implemented by consumer contracts
+    function rawFulfillRandomWords(
+        uint256 requestId,
+        uint256[] calldata randomWords
+    ) external;
+}
+```
+
+IPaintswapVRFConsumer Docs: [docs/interfaces/IPaintswapVRFConsumer.md](docs/interfaces/IPaintswapVRFConsumer.md)
+
+### PaintswapVRFConsumer
 
 ```solidity
 abstract contract PaintswapVRFConsumer {
@@ -236,7 +312,7 @@ abstract contract PaintswapVRFConsumer {
     function _requestRandomnessPayInNative(
         uint256 callbackGasLimit,
         uint256 numWords,
-        uint256 value // The payment amount, should match calculated price
+        uint256 value
     ) internal returns (uint256 requestId);
 
     // Calculate the cost of a request
@@ -247,14 +323,13 @@ abstract contract PaintswapVRFConsumer {
     function _fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords)
         internal virtual;
 
-    // Callback from coordinator
+    // Callback from coordinator (only callable by coordinator)
     function rawFulfillRandomWords(uint256 requestId, uint256[] calldata randomWords)
         external virtual override;
-        // Used by PaintswapVRFConsumer to fulfill request with authorization
-        // to ensure calls are from the PaintswapVRFCoordinator only. Care should
-        // be taken when overriding this function.
 }
 ```
+
+PaintswapVRFConsumer Docs: [docs/PaintswapVRFConsumer.md](docs/PaintswapVRFConsumer.md)
 
 ## Events
 
@@ -262,13 +337,13 @@ abstract contract PaintswapVRFConsumer {
 
 ```solidity
 event RandomWordsRequested(
-    uint256 indexed requestId, // Unique request ID
-    uint256 callbackGasLimit,  // Amount of gas for callback (5k-6m)
-    uint256 numWords,          // Number of random words (<500)
-    address indexed origin,    // Address that initiated the VRF request
-    address indexed consumer,  // The consumer contract that will receive the callback
-    uint256 nonce,             // Consumer nonce for this request
-    uint256 requestedAt        // Timestamp of the request
+    uint256 indexed requestId,
+    uint256 callbackGasLimit,
+    uint256 numWords,
+    address indexed origin,
+    address indexed consumer,
+    uint256 nonce,
+    uint256 requestedAt
 );
 ```
 
@@ -276,11 +351,11 @@ event RandomWordsRequested(
 
 ```solidity
 event RandomWordsFulfilled(
-    uint256 indexed requestId, // Unique request ID
-    uint256[] randomWords,     // Random words generated
-    address indexed oracle,    // Oracle that processed the request
-    bool callSuccess,          // Consumer callback succeeded?
-    uint256 fulfilledAt        // Timestamp of the fulfillment
+    uint256 indexed requestId,
+    uint256[] randomWords,
+    address indexed oracle,
+    bool callSuccess,
+    uint256 fulfilledAt
 );
 ```
 
@@ -289,26 +364,19 @@ event RandomWordsFulfilled(
 ```solidity
 event ConsumerCallbackFailed(
     uint256 indexed requestId,
-    // Reason 1 = NotEnoughGas,
-    // Reason 2 = NoCodeAtAddress,
-    // Reason 3 = RevertedOrOutOfGas
-    uint8 indexed reason,
-    address indexed target,   // The consumer contract address
-    uint256 gasLeft           // Gas remaining after the failed callback
+    uint8 indexed reason, // 1 = NotEnoughGas, 2 = NoCodeAtAddress, 3 = RevertedOrOutOfGas
+    address indexed target,
+    uint256 gasLeft
 );
 ```
 
-(Note: Other events like `OracleRegistered`, `SignerAddressUpdated`, `GasPriceHistoryWindowUpdated`, `RandomRequestLimitsUpdated` are part of `IPaintswapVRFCoordinator` but are more for administrative/operational purposes and not typically directly interacted with by consumers.)
-
 ## Error Handling
 
-The VRF system includes comprehensive error handling:
-
 ```solidity
-// Consumer errors (from PaintswapVRFConsumer.sol)
+// Consumer errors
 error OnlyVRFCoordinator(address sender, address coordinator);
 
-// Coordinator errors (from IPaintswapVRFCoordinator.sol)
+// Coordinator errors
 error ZeroAddress();
 error NotOracle(address invalid);
 error InsufficientGasLimit(uint256 sent, uint256 required);
@@ -318,65 +386,318 @@ error CommitmentMismatch(uint256 requestId);
 error InvalidProof(uint256 requestId);
 error InvalidPublicKey(uint256 requestId, address proofSigner, address vrfSigner);
 error OverConsumerGasLimit(uint256 sent, uint256 max);
-error FundingFailed(address oracle, uint256 amount);
-error InsufficientOracleBalance(address oracle, uint256 balance);
-error InvalidGasPriceHistoryWindow(uint256 window);
-error OracleAlreadyRegistered(address oracle);
-error WithdrawFailed(address recipient, uint256 amount);
 ```
 
 ## Gas Considerations
 
-| Operation   | Estimated Gas      | Notes                                  |
-| ----------- | ------------------ | -------------------------------------- |
-| Request     | ~70,000 - 90,000   | Creates commitment and emits event     |
-| Fulfillment | 300,000 + callback | VRF proof verification + your callback |
-
-(Gas estimates can vary based on network conditions and specific parameters.)
+| Operation            | Estimated Gas       | Notes                                       |
+| -------------------- | ------------------- | ------------------------------------------- |
+| Request              | ~120,000 - 140,000  | Includes request tracking and state updates |
+| Mock Fulfillment     | ~100,000 + callback | Simplified verification + your callback     |
+| Real VRF Fulfillment | ~300,000 + callback | Full cryptographic verification + callback  |
 
 ### How It Works
 
-1.  **Request Phase**: Your contract calls `_requestRandomnessPayInNative()` (if using `PaintswapVRFConsumer`) or `requestRandomnessPayInNative()` (if interacting directly with `IPaintswapVRFCoordinator`). This:
+1. **Request Phase**: Your contract calls `_requestRandomnessPayInNative()` which creates a unique commitment hash and emits a `RandomWordsRequested` event that oracles monitor.
 
-    - Creates a unique commitment hash for the request.
-    - Emits a `RandomWordsRequested` event that oracles monitor.
-    - Uses gas for these operations.
+2. **Oracle Processing**: Oracles detect the event and calculate the VRF proof off-chain using cryptographic algorithms.
 
-2.  **Oracle Processing**: Oracles detect the `RandomWordsRequested` event and:
-
-    - Calculate the VRF proof off-chain using cryptographic algorithms.
-    - Submit a fulfillment transaction with the proof to the coordinator.
-
-3.  **Fulfillment Phase**: The oracle calls `fulfillRandomWords()` on the coordinator contract, which:
-    - Verifies the oracle's identity and permissions.
-    - Validates the VRF proof cryptographically on-chain.
-    - Generates random words from the verified proof.
-    - Calls your consumer contract's `rawFulfillRandomWords` function (which in `PaintswapVRFConsumer` then calls your `_fulfillRandomWords` implementation) with the random words.
-    - Ensures that a request can only be fulfilled once.
-
-### Gas Limit Guidelines
-
-- **Minimum callback gas**: As defined by `minimumGasLimit` in `RandomRequestLimitsUpdated` event (e.g., 5,000).
-- **Maximum callback gas**: As defined by `maximumGasLimit` in `RandomRequestLimitsUpdated` event (e.g., 6,000,000).
-- **Maximum words per request**: As defined by `maxNumWords` in `RandomRequestLimitsUpdated` event (e.g., 500).
-
-### Cost Calculation
-
-The cost of a VRF request is calculated by the `calculateRequestPriceNative(callbackGasLimit)` function in the coordinator. This typically involves:
-`Cost = (BaseGasForFulfillment + callbackGasLimit) * EffectiveGasPrice`
-
-Where:
-
-- `BaseGasForFulfillment` is the gas overhead for the coordinator to verify the proof and manage the fulfillment (e.g., ~250,000-350,000).
-- `callbackGasLimit` is the gas you allocate for your callback function.
-- `EffectiveGasPrice` is a gas price determined by the coordinator, potentially based on recent network conditions or oracle costs.
+3. **Fulfillment Phase**: The oracle calls `fulfillRandomWords()` on the coordinator which verifies the proof, generates random words, and calls your consumer's `rawFulfillRandomWords` function.
 
 ### Security Guarantees
 
-- Each request has a unique commitment hash that prevents replay attacks and ensures the randomness corresponds to the specific request.
-- VRF proofs are mathematically verifiable and cannot be forged by oracles or users.
-- Only registered oracles with valid cryptographic signatures can fulfill requests.
-- Failed consumer callbacks (e.g., due to out-of-gas in the consumer's `_fulfillRandomWords`) do not affect the randomness generation process or the oracle's ability to get paid for a valid fulfillment. The `callSuccess` flag in `RandomWordsFulfilled` event indicates the callback status.
+- Each request has a unique commitment hash preventing replay attacks
+- VRF proofs are mathematically verifiable and cannot be forged
+- Only registered oracles with valid cryptographic signatures can fulfill requests
+- Failed consumer callbacks don't affect the randomness generation or oracle payment
+
+## Testing Best Practices
+
+### Test Fixtures Setup
+
+```typescript
+// test/fixtures.ts
+import { ethers } from "hardhat";
+import {
+  MockPaintswapVRFCoordinator,
+  ExamplePaintswapVRFConsumer,
+} from "@paintswap/vrf";
+
+export async function deployVRFFixture() {
+  const [owner, user1, user2] = await ethers.getSigners();
+
+  // Deploy mock coordinator
+  const MockCoordinator = await ethers.getContractFactory(
+    "MockPaintswapVRFCoordinator",
+  );
+  const mockCoordinator = await MockCoordinator.deploy();
+
+  // Deploy example consumer
+  const Consumer = await ethers.getContractFactory(
+    "ExamplePaintswapVRFConsumer",
+  );
+  const consumer = await Consumer.deploy(await mockCoordinator.getAddress());
+
+  return {
+    mockCoordinator,
+    consumer,
+    owner,
+    user1,
+    user2,
+  };
+}
+
+export async function deployVRFWithRequestFixture() {
+  const fixture = await deployVRFFixture();
+  const { mockCoordinator, consumer, user1 } = fixture;
+
+  // Make a request for testing
+  const fee = await consumer.getRequestPrice(2);
+  const tx = await consumer
+    .connect(user1)
+    .requestRandomWords(2, { value: fee });
+  const receipt = await tx.wait();
+
+  // Extract request ID from event
+  const event = receipt.logs.find(
+    (log) =>
+      log.topics[0] ===
+      consumer.interface.getEvent("RandomnessRequested").topicHash,
+  );
+  const requestId = consumer.interface.parseLog(event).args.requestId;
+
+  return {
+    ...fixture,
+    requestId,
+    fee,
+  };
+}
+```
+
+### Unit Testing with Fixtures
+
+```typescript
+import { expect } from "chai";
+import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import { deployVRFFixture, deployVRFWithRequestFixture } from "./fixtures";
+
+describe("VRF Consumer", function () {
+  describe("Request and Fulfillment", function () {
+    it("should handle randomness request and fulfillment", async function () {
+      const { mockCoordinator, consumer, user1 } =
+        await loadFixture(deployVRFFixture);
+
+      const fee = await consumer.getRequestPrice(2);
+      const tx = await consumer
+        .connect(user1)
+        .requestRandomWords(2, { value: fee });
+      const receipt = await tx.wait();
+
+      // Extract request ID from event
+      const event = receipt.logs.find(
+        (log) =>
+          log.topics[0] ===
+          consumer.interface.getEvent("RandomnessRequested").topicHash,
+      );
+      const requestId = consumer.interface.parseLog(event).args.requestId;
+
+      // Fulfill with mock coordinator
+      await mockCoordinator.fulfillRequestMock(requestId, [123n, 456n]);
+
+      // Verify fulfillment
+      const [exists, fulfilled, , , , randomWords] =
+        await consumer.getRequestStatus(requestId);
+      expect(exists).to.be.true;
+      expect(fulfilled).to.be.true;
+      expect(randomWords).to.deep.equal([123n, 456n]);
+    });
+
+    it("should handle multiple requests", async function () {
+      const { mockCoordinator, consumer, user1, user2 } =
+        await loadFixture(deployVRFFixture);
+
+      // Fund contract for requests
+      await consumer.fundVRF({ value: ethers.parseEther("1") });
+
+      // Make multiple requests
+      const tx1 = await consumer
+        .connect(user1)
+        .requestRandomWordsFromContract(3);
+      const tx2 = await consumer
+        .connect(user2)
+        .requestRandomWordsFromContract(5);
+
+      const receipt1 = await tx1.wait();
+      const receipt2 = await tx2.wait();
+
+      // Extract request IDs
+      const event1 = receipt1.logs.find(
+        (log) =>
+          log.topics[0] ===
+          consumer.interface.getEvent("RandomnessRequested").topicHash,
+      );
+      const event2 = receipt2.logs.find(
+        (log) =>
+          log.topics[0] ===
+          consumer.interface.getEvent("RandomnessRequested").topicHash,
+      );
+
+      const requestId1 = consumer.interface.parseLog(event1).args.requestId;
+      const requestId2 = consumer.interface.parseLog(event2).args.requestId;
+
+      // Fulfill both requests
+      await mockCoordinator.fulfillRequestMockWithRandomWords(requestId1);
+      await mockCoordinator.fulfillRequestMockWithRandomWords(requestId2);
+
+      // Verify statistics
+      const [total, fulfilled, pending] = await consumer.getStats();
+      expect(total).to.equal(2);
+      expect(fulfilled).to.equal(2);
+      expect(pending).to.equal(0);
+    });
+  });
+
+  describe("Request Management", function () {
+    it("should track requests by requester", async function () {
+      const { consumer, user1, user2 } = await loadFixture(deployVRFFixture);
+
+      // Fund contract
+      await consumer.fundVRF({ value: ethers.parseEther("1") });
+
+      // Make requests from different users
+      await consumer.connect(user1).requestRandomWordsFromContract(1);
+      await consumer.connect(user1).requestRandomWordsFromContract(2);
+      await consumer.connect(user2).requestRandomWordsFromContract(3);
+
+      // Check requests per user
+      const user1Requests = await consumer.getRequestsByRequester(
+        user1.address,
+      );
+      const user2Requests = await consumer.getRequestsByRequester(
+        user2.address,
+      );
+
+      expect(user1Requests).to.have.length(2);
+      expect(user2Requests).to.have.length(1);
+    });
+  });
+
+  describe("Error Handling", function () {
+    it("should revert with insufficient payment", async function () {
+      const { consumer, user1 } = await loadFixture(deployVRFFixture);
+
+      const fee = await consumer.getRequestPrice(1);
+      await expect(
+        consumer.connect(user1).requestRandomWords(1, { value: fee - 1n }),
+      ).to.be.revertedWithCustomError(consumer, "InsufficientPayment");
+    });
+
+    it("should handle callback failures gracefully", async function () {
+      const { mockCoordinator, requestId } = await loadFixture(
+        deployVRFWithRequestFixture,
+      );
+
+      // This should emit DebugFulfillment event for debugging callback failures
+      await expect(
+        mockCoordinator.fulfillRequestMock(requestId, [123n, 456n]),
+      ).to.emit(mockCoordinator, "RandomWordsFulfilled");
+    });
+  });
+
+  describe("Advanced Features", function () {
+    it("should predict request IDs", async function () {
+      const { mockCoordinator, consumer, user1 } =
+        await loadFixture(deployVRFFixture);
+
+      // Predict the next request ID
+      const predictedId = await mockCoordinator.calculateNextRequestId(
+        await consumer.getAddress(),
+      );
+
+      // Make the actual request
+      const fee = await consumer.getRequestPrice(1);
+      const tx = await consumer
+        .connect(user1)
+        .requestRandomWords(1, { value: fee });
+      const receipt = await tx.wait();
+
+      // Extract actual request ID
+      const event = receipt.logs.find(
+        (log) =>
+          log.topics[0] ===
+          consumer.interface.getEvent("RandomnessRequested").topicHash,
+      );
+      const actualId = consumer.interface.parseLog(event).args.requestId;
+
+      expect(actualId).to.equal(predictedId);
+    });
+
+    it("should provide detailed request information", async function () {
+      const { mockCoordinator, requestId } = await loadFixture(
+        deployVRFWithRequestFixture,
+      );
+
+      // Get request details
+      const [consumerAddr, gasLimit, numWords, payment, fulfilled] =
+        await mockCoordinator.getRequest(requestId);
+
+      expect(consumerAddr).to.not.equal(ethers.ZeroAddress);
+      expect(gasLimit).to.be.gt(0);
+      expect(numWords).to.equal(2);
+      expect(payment).to.be.gt(0);
+      expect(fulfilled).to.be.false;
+
+      // Fulfill and check again
+      await mockCoordinator.fulfillRequestMock(requestId, [123n, 456n]);
+      const [, , , , fulfilledAfter] =
+        await mockCoordinator.getRequest(requestId);
+      expect(fulfilledAfter).to.be.true;
+    });
+  });
+});
+```
+
+### Integration Testing
+
+```typescript
+describe("Integration Tests", function () {
+  it("should handle complete request lifecycle", async function () {
+    const { mockCoordinator, consumer, user1 } =
+      await loadFixture(deployVRFFixture);
+
+    // Step 1: Make request
+    const fee = await consumer.getRequestPrice(3);
+    const tx = await consumer
+      .connect(user1)
+      .requestRandomWords(3, { value: fee });
+    const receipt = await tx.wait();
+
+    // Step 2: Verify request is pending
+    const event = receipt.logs.find(
+      (log) =>
+        log.topics[0] ===
+        consumer.interface.getEvent("RandomnessRequested").topicHash,
+    );
+    const requestId = consumer.interface.parseLog(event).args.requestId;
+
+    expect(await mockCoordinator.isRequestPending(requestId)).to.be.true;
+
+    // Step 3: Fulfill request
+    await mockCoordinator.fulfillRequestMock(requestId, [111n, 222n, 333n]);
+
+    // Step 4: Verify fulfillment
+    expect(await mockCoordinator.isRequestPending(requestId)).to.be.false;
+    const [exists, fulfilled, requester, numWords, , randomWords] =
+      await consumer.getRequestStatus(requestId);
+
+    expect(exists).to.be.true;
+    expect(fulfilled).to.be.true;
+    expect(requester).to.equal(user1.address);
+    expect(numWords).to.equal(3);
+    expect(randomWords).to.deep.equal([111n, 222n, 333n]);
+  });
+});
+```
 
 ## Support
 

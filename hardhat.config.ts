@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import {type HardhatUserConfig} from "hardhat/config";
+import { type HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomiclabs/hardhat-solhint";
 import "hardhat-abi-exporter";
@@ -37,7 +37,8 @@ const config: HardhatUserConfig = {
     currency: process.env.GAS_CURRENCY || "USD",
     token: process.env.GAS_TOKEN || "S",
     coinmarketcap: process.env.COINMARKETCAP_API_KEY,
-    gasPriceApi: "https://api.sonicscan.org/api?module=proxy&action=eth_gasPrice",
+    gasPriceApi:
+      "https://api.sonicscan.org/api?module=proxy&action=eth_gasPrice",
   },
   contractSizer: {
     alphaSort: true,
@@ -84,6 +85,8 @@ const config: HardhatUserConfig = {
       "FeeM.sol",
       "PaintswapVRFConsumer.sol",
       "PaintswapVRFCoordinator.sol",
+      "ExamplePaintswapVRFConsumer.sol",
+      "MockPaintswapVRFCoordinator.sol",
     ],
   },
   typechain: {
