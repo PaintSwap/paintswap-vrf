@@ -142,9 +142,9 @@ if (requestedEvent) {
 
 ## Development & Testing
 
-### MockPaintswapVRFCoordinator
+### MockVRFCoordinator
 
-For development and testing, use the `MockPaintswapVRFCoordinator` which simulates the VRF coordinator without requiring cryptographic proofs or oracle networks. **Important: The mock coordinator should only be used in your test files, not in your production consumer contracts.**
+For development and testing, use the `MockVRFCoordinator` which simulates the VRF coordinator without requiring cryptographic proofs or oracle networks. **Important: The mock coordinator should only be used in your test files, not in your production consumer contracts.**
 
 #### Basic Testing Setup
 
@@ -152,18 +152,17 @@ For development and testing, use the `MockPaintswapVRFCoordinator` which simulat
 // test/MyContract.test.ts
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { MockPaintswapVRFCoordinator } from "@paintswap/vrf";
+import { MockVRFCoordinator } from "@paintswap/vrf";
 import { MyContract } from "../typechain-types";
 
 describe("MyContract", function () {
-  let mockCoordinator: MockPaintswapVRFCoordinator;
+  let mockCoordinator: MockVRFCoordinator;
   let myContract: MyContract;
 
   beforeEach(async function () {
     // Deploy mock coordinator in your test
-    const MockCoordinator = await ethers.getContractFactory(
-      "MockPaintswapVRFCoordinator",
-    );
+    const MockCoordinator =
+      await ethers.getContractFactory("MockVRFCoordinator");
     mockCoordinator = await MockCoordinator.deploy();
 
     // Deploy your consumer contract with the mock coordinator address
@@ -222,15 +221,15 @@ const predictedRequestId =
   await mockCoordinator.calculateNextRequestId(consumerAddress);
 ```
 
-### ExamplePaintswapVRFConsumer
+### ExampleVRFConsumer
 
-The `ExamplePaintswapVRFConsumer` demonstrates best practices for implementing VRF functionality with dual payment methods, request management, and utility functions.
+The `ExampleVRFConsumer` demonstrates best practices for implementing VRF functionality with dual payment methods, request management, and utility functions.
 
 ```solidity
-import "@paintswap/vrf/contracts/examples/ExamplePaintswapVRFConsumer.sol";
+import "@paintswap/vrf/contracts/examples/ExampleVRFConsumer.sol";
 
 // Deploy the example consumer
-ExamplePaintswapVRFConsumer consumer = new ExamplePaintswapVRFConsumer(coordinatorAddress);
+ExampleVRFConsumer consumer = new ExampleVRFConsumer(coordinatorAddress);
 
 // Fund the contract for requests
 consumer.fundVRF{value: 1 ether}();
@@ -264,8 +263,8 @@ import "@paintswap/vrf/contracts/interfaces/IPaintswapVRFCoordinator.sol";
 import "@paintswap/vrf/contracts/interfaces/IPaintswapVRFConsumer.sol";
 
 // Development and testing (only import in test contracts)
-import "@paintswap/vrf/contracts/mocks/MockPaintswapVRFCoordinator.sol";
-import "@paintswap/vrf/contracts/examples/ExamplePaintswapVRFConsumer.sol";
+import "@paintswap/vrf/contracts/mocks/MockVRFCoordinator.sol";
+import "@paintswap/vrf/contracts/examples/ExampleVRFConsumer.sol";
 ```
 
 ## API Reference
@@ -418,24 +417,17 @@ error OverConsumerGasLimit(uint256 sent, uint256 max);
 ```typescript
 // test/fixtures.ts
 import { ethers } from "hardhat";
-import {
-  MockPaintswapVRFCoordinator,
-  ExamplePaintswapVRFConsumer,
-} from "@paintswap/vrf";
+import { MockVRFCoordinator, ExampleVRFConsumer } from "@paintswap/vrf";
 
 export async function deployVRFFixture() {
   const [owner, user1, user2] = await ethers.getSigners();
 
   // Deploy mock coordinator
-  const MockCoordinator = await ethers.getContractFactory(
-    "MockPaintswapVRFCoordinator",
-  );
+  const MockCoordinator = await ethers.getContractFactory("MockVRFCoordinator");
   const mockCoordinator = await MockCoordinator.deploy();
 
   // Deploy example consumer
-  const Consumer = await ethers.getContractFactory(
-    "ExamplePaintswapVRFConsumer",
-  );
+  const Consumer = await ethers.getContractFactory("ExampleVRFConsumer");
   const consumer = await Consumer.deploy(await mockCoordinator.getAddress());
 
   return {

@@ -5,12 +5,12 @@ import {IPaintswapVRFCoordinator} from "../interfaces/IPaintswapVRFCoordinator.s
 import {IPaintswapVRFConsumer} from "../interfaces/IPaintswapVRFConsumer.sol";
 
 /**
- * @title MockPaintswapVRFCoordinator
+ * @title MockVRFCoordinator
  * @dev Mock implementation of PaintswapVRFCoordinator for testing
  * @notice Simulates VRF coordinator functionality without cryptographic proofs
  * @dev Requests and fulfillments are separate operations, like the real coordinator
  */
-contract MockPaintswapVRFCoordinator is IPaintswapVRFCoordinator {
+contract MockVRFCoordinator is IPaintswapVRFCoordinator {
     /* -------------------------------------------------------------------------- */
     /*                                Constants                                   */
     /* -------------------------------------------------------------------------- */

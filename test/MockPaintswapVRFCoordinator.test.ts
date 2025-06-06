@@ -2,17 +2,16 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 
-describe("MockPaintswapVRFCoordinator", function () {
+describe("MockVRFCoordinator", function () {
   // Test fixtures
   async function deployCoordinatorMockFixture() {
     const [owner, oracle1, oracle2, consumer1, consumer2, user1] =
       await ethers.getSigners();
 
-    // Deploy the MockPaintswapVRFCoordinator
-    const MockPaintswapVRFCoordinator = await ethers.getContractFactory(
-      "MockPaintswapVRFCoordinator",
-    );
-    const coordinator = await MockPaintswapVRFCoordinator.deploy();
+    // Deploy the MockVRFCoordinator
+    const MockVRFCoordinator =
+      await ethers.getContractFactory("MockVRFCoordinator");
+    const coordinator = await MockVRFCoordinator.deploy();
     await coordinator.waitForDeployment();
 
     return {
@@ -134,17 +133,16 @@ describe("MockPaintswapVRFCoordinator", function () {
     it("Should emit OracleRegistered event on deployment", async function () {
       const [owner] = await ethers.getSigners();
 
-      const MockPaintswapVRFCoordinator = await ethers.getContractFactory(
-        "MockPaintswapVRFCoordinator",
-      );
+      const MockVRFCoordinator =
+        await ethers.getContractFactory("MockVRFCoordinator");
 
       // Deploy and wait for transaction receipt
-      const deployTx = await MockPaintswapVRFCoordinator.getDeployTransaction();
+      const deployTx = await MockVRFCoordinator.getDeployTransaction();
       const response = await owner.sendTransaction(deployTx);
       const receipt = await response.wait();
 
       // Check for OracleRegistered event in the logs
-      const iface = MockPaintswapVRFCoordinator.interface;
+      const iface = MockVRFCoordinator.interface;
       const oracleRegisteredEvent = receipt?.logs.find((log) => {
         try {
           const parsed = iface.parseLog(log);

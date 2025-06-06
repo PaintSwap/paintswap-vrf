@@ -4,8 +4,8 @@ pragma solidity ^0.8.30;
 import {PaintswapVRFConsumer} from "../PaintswapVRFConsumer.sol";
 
 /**
- * @title ExamplePaintswapVRFConsumer
- * @notice Example implementation of a VRF consumer contract
+ * @title ExampleVRFConsumer
+ * @notice Example implementation of a Paintswap VRF consumer contract
  * @dev Demonstrates best practices for using Paintswap VRF to generate random numbers
  *
  * This example shows:
@@ -16,7 +16,7 @@ import {PaintswapVRFConsumer} from "../PaintswapVRFConsumer.sol";
  * - How to implement proper access controls
  * - How to handle edge cases and errors
  */
-contract ExamplePaintswapVRFConsumer is PaintswapVRFConsumer {
+contract ExampleVRFConsumer is PaintswapVRFConsumer {
     /// @notice Maximum number of random words that can be requested in a single call
     uint256 public constant MAX_WORDS_PER_REQUEST = 10;
 

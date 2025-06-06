@@ -37,23 +37,21 @@ function multipleRandomInRange(
   return results;
 }
 
-describe("ExamplePaintswapVRFConsumer", function () {
+describe("ExampleVRFConsumer", function () {
   // Test fixtures
   async function deployVRFConsumerFixture() {
     const [owner, user1, user2, user3] = await ethers.getSigners();
 
     // Deploy the mock VRF coordinator
-    const MockPaintswapVRFCoordinator = await ethers.getContractFactory(
-      "MockPaintswapVRFCoordinator",
-    );
-    const mockCoordinator = await MockPaintswapVRFCoordinator.deploy();
+    const MockVRFCoordinator =
+      await ethers.getContractFactory("MockVRFCoordinator");
+    const mockCoordinator = await MockVRFCoordinator.deploy();
     await mockCoordinator.waitForDeployment();
 
-    // Deploy the ExamplePaintswapVRFConsumer
-    const ExamplePaintswapVRFConsumer = await ethers.getContractFactory(
-      "ExamplePaintswapVRFConsumer",
-    );
-    const consumer = await ExamplePaintswapVRFConsumer.deploy(
+    // Deploy the ExampleVRFConsumer
+    const ExampleVRFConsumer =
+      await ethers.getContractFactory("ExampleVRFConsumer");
+    const consumer = await ExampleVRFConsumer.deploy(
       await mockCoordinator.getAddress(),
     );
     await consumer.waitForDeployment();

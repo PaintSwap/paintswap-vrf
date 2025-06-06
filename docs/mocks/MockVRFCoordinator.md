@@ -1,8 +1,8 @@
-# MockPaintswapVRFCoordinator
+# MockVRFCoordinator
 
 
 
-> MockPaintswapVRFCoordinator
+> MockVRFCoordinator
 
 Simulates VRF coordinator functionality without cryptographic proofs
 

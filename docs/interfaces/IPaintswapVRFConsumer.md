@@ -25,7 +25,7 @@ rawFulfillRandomWords handles the VRF response and your contract must implement 
 | Name | Type | Description |
 |---|---|---|
 | requestId | uint256 | The Id initially returned by requestRandomness |
-| randomWords | uint256[] | the VRF output expanded to the requested number of words |
+| randomWords | uint256[] | The VRF output expanded to the requested number of words |
 
 
 
