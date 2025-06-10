@@ -138,7 +138,7 @@ Get the cost to request randomness
 ### getRequestStatus
 
 ```solidity
-function getRequestStatus(uint256 requestId) external view returns (bool exists, bool fulfilled, address requester, uint256 numWords, uint256 requestedAt, uint256[] randomWords)
+function getRequestStatus(uint256 requestId) external view returns (bool exists, bool fulfilled, address requester, uint256 numWords, address refundee, uint256 requestedAt, uint256[] randomWords)
 ```
 
 Check the status of a randomness request
@@ -159,6 +159,7 @@ Check the status of a randomness request
 | fulfilled | bool | Whether the request has been fulfilled |
 | requester | address | Address that made the request |
 | numWords | uint256 | Number of words requested |
+| refundee | address | Address to refund gas fees |
 | requestedAt | uint256 | Timestamp when request was made |
 | randomWords | uint256[] | The random words (empty if not fulfilled) |
 
