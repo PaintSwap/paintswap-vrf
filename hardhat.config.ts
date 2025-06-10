@@ -84,7 +84,7 @@ const config: HardhatUserConfig = {
       "VRF.sol",
       "FeeM.sol",
       "PaintswapVRFConsumer.sol",
-      "PaintswapVRFCoordinator.sol",
+      "PaintswapVRFCoordinatorCore.sol",
       "ExampleVRFConsumer.sol",
       "MockVRFCoordinator.sol",
     ],

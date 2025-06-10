@@ -62,7 +62,8 @@ contract MyContract is PaintswapVRFConsumer {
 
         // Request one random number
         uint256 numberOfWords = 1;
-        requestId = _requestRandomnessPayInNative(CALLBACK_GAS_LIMIT, numberOfWords, requestPrice);
+        address refundee = msg.sender;
+        requestId = _requestRandomnessPayInNative(CALLBACK_GAS_LIMIT, numberOfWords, refundee, requestPrice);
 
         // Store the user for this request
         requestToUser[requestId] = msg.sender;
@@ -311,6 +312,7 @@ abstract contract PaintswapVRFConsumer {
     function _requestRandomnessPayInNative(
         uint256 callbackGasLimit,
         uint256 numWords,
+        address refundee,
         uint256 value
     ) internal returns (uint256 requestId);
 
@@ -335,14 +337,16 @@ PaintswapVRFConsumer Docs: [docs/PaintswapVRFConsumer.md](docs/PaintswapVRFConsu
 ### RandomWordsRequested
 
 ```solidity
-event RandomWordsRequested(
-    uint256 indexed requestId,
-    uint256 callbackGasLimit,
-    uint256 numWords,
-    address indexed origin,
-    address indexed consumer,
-    uint256 nonce,
-    uint256 requestedAt
+ event RandomWordsRequested(
+  uint256 indexed requestId,
+  uint256 callbackGasLimit,
+  uint256 numWords,
+  address indexed origin,
+  address indexed consumer,
+  uint256 nonce,
+  address refundee,
+  uint256 gasPricePaid,
+  uint256 requestedAt
 );
 ```
 

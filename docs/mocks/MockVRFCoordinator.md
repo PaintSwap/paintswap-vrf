@@ -96,7 +96,7 @@ function decodeErrorString(bytes errorData) external pure returns (string errorM
 ### fulfillRandomWords
 
 ```solidity
-function fulfillRandomWords(uint256 requestId, address consumer, uint256 callbackGasLimit, uint256 numWords, uint256[2] publicKey, uint256[4] proof, uint256[2], uint256[4], uint8) external nonpayable returns (bool callSuccess)
+function fulfillRandomWords(uint256 requestId, address consumer, uint256 callbackGasLimit, uint256 numWords, address refundee, uint256 gasPricePaid, uint256[2] publicKey, uint256[4] proof, uint256[2], uint256[4], uint8) external nonpayable returns (bool callSuccess)
 ```
 
 Fulfill the request for random words
@@ -111,11 +111,13 @@ Fulfill the request for random words
 | consumer | address | The amount of gas fees paid to fulfill the request |
 | callbackGasLimit | uint256 | undefined |
 | numWords | uint256 | The number of words to fulfill |
+| refundee | address | The address to refund the gas fees to |
+| gasPricePaid | uint256 | The gas price paid for the request |
 | publicKey | uint256[2] | The public key of the oracle |
 | proof | uint256[4] | The proof of the random words |
-| _6 | uint256[2] | undefined |
-| _7 | uint256[4] | undefined |
-| _8 | uint8 | undefined |
+| _8 | uint256[2] | undefined |
+| _9 | uint256[4] | undefined |
+| _10 | uint8 | undefined |
 
 #### Returns
 
@@ -126,7 +128,7 @@ Fulfill the request for random words
 ### fulfillRequestMock
 
 ```solidity
-function fulfillRequestMock(uint256 requestId, uint256[] randomWords) external nonpayable
+function fulfillRequestMock(uint256 requestId, uint256[] randomWords, address refundee) external nonpayable
 ```
 
 
@@ -139,6 +141,7 @@ function fulfillRequestMock(uint256 requestId, uint256[] randomWords) external n
 |---|---|---|
 | requestId | uint256 | The ID of the request to fulfill |
 | randomWords | uint256[] | Array of random words to provide |
+| refundee | address | Address to refund any unused gas |
 
 ### fulfillRequestMockWithRandomWords
 
@@ -202,7 +205,7 @@ function getNonce(address consumer) external view returns (uint256)
 ### getRequest
 
 ```solidity
-function getRequest(uint256 requestId) external view returns (address consumer, uint256 callbackGasLimit, uint256 numWords, uint256 payment, bool fulfilled)
+function getRequest(uint256 requestId) external view returns (address consumer, uint256 callbackGasLimit, uint256 numWords, uint256 gasPricePaid, bool fulfilled)
 ```
 
 
@@ -222,7 +225,7 @@ function getRequest(uint256 requestId) external view returns (address consumer, 
 | consumer | address | undefined |
 | callbackGasLimit | uint256 | undefined |
 | numWords | uint256 | undefined |
-| payment | uint256 | undefined |
+| gasPricePaid | uint256 | undefined |
 | fulfilled | bool | undefined |
 
 ### getRequestResult
@@ -312,7 +315,7 @@ Check to see if a request is pending
 ### requestRandomnessPayInNative
 
 ```solidity
-function requestRandomnessPayInNative(uint256 callbackGasLimit, uint256 numWords) external payable returns (uint256 requestId)
+function requestRandomnessPayInNative(uint256 callbackGasLimit, uint256 numWords, address refundee) external payable returns (uint256 requestId)
 ```
 
 Request some random words
@@ -325,6 +328,7 @@ Request some random words
 |---|---|---|
 | callbackGasLimit | uint256 | The amount of gas to provide for the callback |
 | numWords | uint256 | The number of words to request |
+| refundee | address | The address to refund the gas fees to |
 
 #### Returns
 
@@ -372,6 +376,25 @@ event DebugFulfillment(uint256 indexed requestId, bool callSuccess, string reaso
 | requestId `indexed` | uint256 | undefined |
 | callSuccess  | bool | undefined |
 | reason  | string | undefined |
+
+### FulfillmentGasRefunded
+
+```solidity
+event FulfillmentGasRefunded(uint256 indexed requestId, address indexed refundee, uint256 gasRefunded, bool refundedSuccessfully)
+```
+
+
+
+*Emitted when the gas refund after fulfillment fails*
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| requestId `indexed` | uint256 | undefined |
+| refundee `indexed` | address | undefined |
+| gasRefunded  | uint256 | undefined |
+| refundedSuccessfully  | bool | undefined |
 
 ### GasPriceHistoryWindowUpdated
 
@@ -446,7 +469,7 @@ event RandomWordsFulfilled(uint256 indexed requestId, uint256[] randomWords, add
 ### RandomWordsRequested
 
 ```solidity
-event RandomWordsRequested(uint256 indexed requestId, uint256 callbackGasLimit, uint256 numWords, address indexed origin, address indexed consumer, uint256 nonce, uint256 requestedAt)
+event RandomWordsRequested(uint256 indexed requestId, uint256 callbackGasLimit, uint256 numWords, address indexed origin, address indexed consumer, uint256 nonce, address refundee, uint256 gasPricePaid, uint256 requestedAt)
 ```
 
 
@@ -463,6 +486,8 @@ event RandomWordsRequested(uint256 indexed requestId, uint256 callbackGasLimit, 
 | origin `indexed` | address | undefined |
 | consumer `indexed` | address | undefined |
 | nonce  | uint256 | undefined |
+| refundee  | address | undefined |
+| gasPricePaid  | uint256 | undefined |
 | requestedAt  | uint256 | undefined |
 
 ### SignerAddressUpdated

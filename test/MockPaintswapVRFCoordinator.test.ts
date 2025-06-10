@@ -1,6 +1,9 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import { consumer } from "../typechain-types/mocks";
+import { CustomErrorVRFConsumer } from "../typechain-types";
+import { formatUnits, parseUnits } from "ethers";
 
 describe("MockVRFCoordinator", function () {
   // Test fixtures
@@ -37,7 +40,7 @@ describe("MockVRFCoordinator", function () {
 
     const tx = await coordinator
       .connect(consumer1)
-      .requestRandomnessPayInNative(callbackGasLimit, numWords, {
+      .requestRandomnessPayInNative(callbackGasLimit, numWords, consumer1, {
         value: price,
       });
     const receipt = await tx.wait();
@@ -54,8 +57,16 @@ describe("MockVRFCoordinator", function () {
 
     const parsedEvent = coordinator.interface.parseLog(event!);
     const requestId = parsedEvent?.args[0];
+    const requestGasPrice = parsedEvent?.args[7];
 
-    return { ...fixture, requestId, callbackGasLimit, numWords, price };
+    return {
+      ...fixture,
+      requestId,
+      callbackGasLimit,
+      numWords,
+      // price,
+      requestGasPrice,
+    };
   }
 
   async function deployWithFailingConsumerFixture() {
@@ -208,15 +219,15 @@ describe("MockVRFCoordinator", function () {
         deployCoordinatorMockFixture,
       );
 
-      const callbackGasLimit = 100_000;
-      const numWords = 5;
+      const callbackGasLimit = 100_000n;
+      const numWords = 5n;
       const price =
         await coordinator.calculateRequestPriceNative(callbackGasLimit);
 
       await expect(
         coordinator
           .connect(consumer1)
-          .requestRandomnessPayInNative(callbackGasLimit, numWords, {
+          .requestRandomnessPayInNative(callbackGasLimit, numWords, consumer1, {
             value: price,
           }),
       )
@@ -228,7 +239,11 @@ describe("MockVRFCoordinator", function () {
           consumer1.address, // tx.origin
           consumer1.address, // consumer
           1, // nonce
-          (value: any) => value > 0, // timestamp should be > 0
+          consumer1.address, // refund address
+          (gasPricePaid: bigint) => {
+            return formatUnits(Number(gasPricePaid), "gwei") == "1.0"; // base gas is set to 1 gwei, so this is the gas price paid
+          },
+          (value: any) => value > 0, // timestamp should be > 0}
         );
 
       // Check that statistics were updated
@@ -255,9 +270,14 @@ describe("MockVRFCoordinator", function () {
       await expect(
         coordinator
           .connect(consumer1)
-          .requestRandomnessPayInNative(callbackGasLimit, numWords, {
-            value: insufficientPrice,
-          }),
+          .requestRandomnessPayInNative(
+            callbackGasLimit,
+            numWords,
+            ethers.ZeroAddress,
+            {
+              value: insufficientPrice,
+            },
+          ),
       ).to.be.revertedWithCustomError(coordinator, "InsufficientGasPayment");
     });
 
@@ -272,7 +292,7 @@ describe("MockVRFCoordinator", function () {
       await expect(
         coordinator
           .connect(consumer1)
-          .requestRandomnessPayInNative(4_999, numWords, {
+          .requestRandomnessPayInNative(4_999, numWords, consumer1, {
             value: ethers.parseEther("1"),
           }),
       ).to.be.revertedWithCustomError(coordinator, "InsufficientGasLimit");
@@ -281,7 +301,7 @@ describe("MockVRFCoordinator", function () {
       await expect(
         coordinator
           .connect(consumer1)
-          .requestRandomnessPayInNative(6_000_001, numWords, {
+          .requestRandomnessPayInNative(6_000_001, numWords, consumer1, {
             value: ethers.parseEther("1"),
           }),
       ).to.be.revertedWithCustomError(coordinator, "OverConsumerGasLimit");
@@ -298,7 +318,7 @@ describe("MockVRFCoordinator", function () {
       await expect(
         coordinator
           .connect(consumer1)
-          .requestRandomnessPayInNative(callbackGasLimit, 0, {
+          .requestRandomnessPayInNative(callbackGasLimit, 0, consumer1, {
             value: ethers.parseEther("1"),
           }),
       ).to.be.revertedWithCustomError(coordinator, "InvalidNumWords");
@@ -307,7 +327,7 @@ describe("MockVRFCoordinator", function () {
       await expect(
         coordinator
           .connect(consumer1)
-          .requestRandomnessPayInNative(callbackGasLimit, 501, {
+          .requestRandomnessPayInNative(callbackGasLimit, 501, consumer1, {
             value: ethers.parseEther("1"),
           }),
       ).to.be.revertedWithCustomError(coordinator, "InvalidNumWords");
@@ -326,7 +346,7 @@ describe("MockVRFCoordinator", function () {
       // First request
       const tx1 = await coordinator
         .connect(consumer1)
-        .requestRandomnessPayInNative(callbackGasLimit, numWords, {
+        .requestRandomnessPayInNative(callbackGasLimit, numWords, consumer1, {
           value: price,
         });
       const receipt1 = await tx1.wait();
@@ -334,9 +354,14 @@ describe("MockVRFCoordinator", function () {
       // Second request
       const tx2 = await coordinator
         .connect(consumer1)
-        .requestRandomnessPayInNative(callbackGasLimit, numWords, {
-          value: price,
-        });
+        .requestRandomnessPayInNative(
+          callbackGasLimit,
+          numWords,
+          ethers.ZeroAddress,
+          {
+            value: price,
+          },
+        );
       const receipt2 = await tx2.wait();
 
       // Extract request IDs
@@ -385,14 +410,14 @@ describe("MockVRFCoordinator", function () {
       // Request from consumer1
       await coordinator
         .connect(consumer1)
-        .requestRandomnessPayInNative(callbackGasLimit, numWords, {
+        .requestRandomnessPayInNative(callbackGasLimit, numWords, consumer1, {
           value: price,
         });
 
       // Request from consumer2
       await coordinator
         .connect(consumer2)
-        .requestRandomnessPayInNative(callbackGasLimit, numWords, {
+        .requestRandomnessPayInNative(callbackGasLimit, numWords, consumer1, {
           value: price,
         });
 
@@ -419,7 +444,7 @@ describe("MockVRFCoordinator", function () {
       await expect(
         coordinator
           .connect(consumer1)
-          .requestRandomnessPayInNative(callbackGasLimit, numWords, {
+          .requestRandomnessPayInNative(callbackGasLimit, numWords, consumer1, {
             value: overpayment,
           }),
       ).to.not.be.reverted;
@@ -445,7 +470,7 @@ describe("MockVRFCoordinator", function () {
 
       const tx = await coordinator
         .connect(consumer1)
-        .requestRandomnessPayInNative(callbackGasLimit, numWords, {
+        .requestRandomnessPayInNative(callbackGasLimit, numWords, consumer1, {
           value: price,
         });
       const receipt = await tx.wait();
@@ -491,7 +516,7 @@ describe("MockVRFCoordinator", function () {
 
       await coordinator
         .connect(consumer1)
-        .requestRandomnessPayInNative(callbackGasLimit, numWords, {
+        .requestRandomnessPayInNative(callbackGasLimit, numWords, consumer1, {
           value: price,
         });
 
@@ -517,7 +542,7 @@ describe("MockVRFCoordinator", function () {
     });
 
     it("Should return false for fulfilled requests", async function () {
-      const { coordinator, requestId, numWords } = await loadFixture(
+      const { coordinator, requestId, numWords, consumer1 } = await loadFixture(
         deployWithRequestFixture,
       );
 
@@ -525,7 +550,11 @@ describe("MockVRFCoordinator", function () {
       const randomWords = Array.from({ length: numWords }, (_, i) =>
         BigInt(i + 1),
       );
-      await coordinator.fulfillRequestMock(requestId, randomWords);
+      await coordinator.fulfillRequestMock(
+        requestId,
+        randomWords,
+        consumer1.address,
+      );
 
       expect(await coordinator.isRequestPending(requestId)).to.be.false;
     });
@@ -539,7 +568,13 @@ describe("MockVRFCoordinator", function () {
 
       const customRandomWords = [12345n, 67890n, 11111n];
 
-      await expect(coordinator.fulfillRequestMock(requestId, customRandomWords))
+      await expect(
+        coordinator.fulfillRequestMock(
+          requestId,
+          customRandomWords,
+          consumer1.address,
+        ),
+      )
         .to.emit(coordinator, "RandomWordsFulfilled")
         .withArgs(
           requestId,
@@ -581,18 +616,24 @@ describe("MockVRFCoordinator", function () {
     });
 
     it("Should revert when fulfilling non-existent request", async function () {
-      const { coordinator } = await loadFixture(deployCoordinatorMockFixture);
+      const { coordinator, consumer1 } = await loadFixture(
+        deployCoordinatorMockFixture,
+      );
 
       const nonExistentRequestId = 999999n;
       const randomWords = [12345n];
 
       await expect(
-        coordinator.fulfillRequestMock(nonExistentRequestId, randomWords),
+        coordinator.fulfillRequestMock(
+          nonExistentRequestId,
+          randomWords,
+          consumer1,
+        ),
       ).to.be.revertedWithCustomError(coordinator, "RequestNotFound");
     });
 
     it("Should revert when fulfilling already fulfilled request", async function () {
-      const { coordinator, requestId, numWords } = await loadFixture(
+      const { coordinator, requestId, numWords, consumer1 } = await loadFixture(
         deployWithRequestFixture,
       );
 
@@ -600,16 +641,16 @@ describe("MockVRFCoordinator", function () {
       const randomWords = Array.from({ length: numWords }, (_, i) =>
         BigInt(i + 1),
       );
-      await coordinator.fulfillRequestMock(requestId, randomWords);
+      await coordinator.fulfillRequestMock(requestId, randomWords, consumer1);
 
       // Try to fulfill again
       await expect(
-        coordinator.fulfillRequestMock(requestId, randomWords),
+        coordinator.fulfillRequestMock(requestId, randomWords, consumer1),
       ).to.be.revertedWithCustomError(coordinator, "CommitmentMismatch");
     });
 
     it("Should revert when fulfilling with wrong number of words", async function () {
-      const { coordinator, requestId } = await loadFixture(
+      const { coordinator, requestId, consumer1 } = await loadFixture(
         deployWithRequestFixture,
       );
 
@@ -617,12 +658,16 @@ describe("MockVRFCoordinator", function () {
       const wrongRandomWords = [12345n, 67890n];
 
       await expect(
-        coordinator.fulfillRequestMock(requestId, wrongRandomWords),
+        coordinator.fulfillRequestMock(
+          requestId,
+          wrongRandomWords,
+          consumer1.address,
+        ),
       ).to.be.revertedWithCustomError(coordinator, "InvalidNumWords");
     });
 
     it("Should emit debug events on fulfillment", async function () {
-      const { coordinator, requestId, numWords } = await loadFixture(
+      const { coordinator, requestId, numWords, consumer1 } = await loadFixture(
         deployWithRequestFixture,
       );
 
@@ -630,7 +675,13 @@ describe("MockVRFCoordinator", function () {
         BigInt(i + 1),
       );
 
-      await expect(coordinator.fulfillRequestMock(requestId, randomWords))
+      await expect(
+        coordinator.fulfillRequestMock(
+          requestId,
+          randomWords,
+          consumer1.address,
+        ),
+      )
         .to.emit(coordinator, "DebugFulfillment")
         .withArgs(requestId, true, "callback succeeded");
     });
@@ -644,21 +695,21 @@ describe("MockVRFCoordinator", function () {
         consumer1,
         callbackGasLimit,
         numWords,
-        price,
+        requestGasPrice,
       } = await loadFixture(deployWithRequestFixture);
 
-      const [consumer, gasLimit, words, payment, fulfilled] =
+      const [consumer, gasLimit, words, gasPricePaid, fulfilled] =
         await coordinator.getRequest(requestId);
 
       expect(consumer).to.equal(consumer1.address);
       expect(gasLimit).to.equal(callbackGasLimit);
       expect(words).to.equal(numWords);
-      expect(payment).to.equal(price);
+      expect(gasPricePaid).to.equal(requestGasPrice);
       expect(fulfilled).to.be.false;
     });
 
     it("Should update fulfilled status after fulfillment", async function () {
-      const { coordinator, requestId, numWords } = await loadFixture(
+      const { coordinator, requestId, numWords, consumer1 } = await loadFixture(
         deployWithRequestFixture,
       );
 
@@ -666,7 +717,7 @@ describe("MockVRFCoordinator", function () {
       const randomWords = Array.from({ length: numWords }, (_, i) =>
         BigInt(i + 1),
       );
-      await coordinator.fulfillRequestMock(requestId, randomWords);
+      await coordinator.fulfillRequestMock(requestId, randomWords, consumer1);
 
       const [, , , , fulfilled] = await coordinator.getRequest(requestId);
       expect(fulfilled).to.be.true;
@@ -675,7 +726,7 @@ describe("MockVRFCoordinator", function () {
 
   describe("Request Results", function () {
     it("Should track request results correctly", async function () {
-      const { coordinator, requestId, numWords } = await loadFixture(
+      const { coordinator, requestId, numWords, consumer1 } = await loadFixture(
         deployWithRequestFixture,
       );
 
@@ -688,7 +739,7 @@ describe("MockVRFCoordinator", function () {
       const randomWords = Array.from({ length: numWords }, (_, i) =>
         BigInt(i + 1),
       );
-      await coordinator.fulfillRequestMock(requestId, randomWords);
+      await coordinator.fulfillRequestMock(requestId, randomWords, consumer1);
 
       // After fulfillment
       [wasSuccess, wasFulfilled] =
@@ -720,13 +771,19 @@ describe("MockVRFCoordinator", function () {
       // Make 3 requests
       const tx1 = await coordinator
         .connect(consumer1)
-        .requestRandomnessPayInNative(callbackGasLimit, 2, { value: price });
+        .requestRandomnessPayInNative(callbackGasLimit, 2, consumer1, {
+          value: price,
+        });
       const tx2 = await coordinator
         .connect(consumer1)
-        .requestRandomnessPayInNative(callbackGasLimit, 3, { value: price });
+        .requestRandomnessPayInNative(callbackGasLimit, 3, ethers.ZeroAddress, {
+          value: price,
+        });
       const tx3 = await coordinator
         .connect(consumer2)
-        .requestRandomnessPayInNative(callbackGasLimit, 1, { value: price });
+        .requestRandomnessPayInNative(callbackGasLimit, 1, consumer2, {
+          value: price,
+        });
 
       // Check statistics after requests
       let [total, pending, successes, failures, totalWords] =
@@ -774,8 +831,21 @@ describe("MockVRFCoordinator", function () {
       const requestId3 = coordinator.interface.parseLog(event3!)?.args[0];
 
       // Fulfill 2 requests successfully
-      await coordinator.fulfillRequestMock(requestId1, [111n, 222n]);
-      await coordinator.fulfillRequestMock(requestId2, [333n, 444n, 555n]);
+      await coordinator.fulfillRequestMock(
+        requestId1,
+        [111n, 222n],
+        consumer1.address,
+      );
+      const fulfillTx2 = await coordinator.fulfillRequestMock(
+        requestId2,
+        [333n, 444n, 555n],
+        ethers.ZeroAddress,
+      );
+      await expect(fulfillTx2).to.emit(coordinator, "RandomWordsFulfilled");
+      await expect(fulfillTx2).to.not.emit(
+        coordinator,
+        "FulfillmentGasRefunded",
+      );
 
       // Check statistics after fulfillments
       [total, pending, successes, failures, totalWords] =
@@ -838,7 +908,7 @@ describe("MockVRFCoordinator", function () {
       // Consumer1 makes a request
       await coordinator
         .connect(consumer1)
-        .requestRandomnessPayInNative(callbackGasLimit, numWords, {
+        .requestRandomnessPayInNative(callbackGasLimit, numWords, consumer1, {
           value: price,
         });
 
@@ -848,7 +918,7 @@ describe("MockVRFCoordinator", function () {
       // Consumer2 makes a request
       await coordinator
         .connect(consumer2)
-        .requestRandomnessPayInNative(callbackGasLimit, numWords, {
+        .requestRandomnessPayInNative(callbackGasLimit, numWords, consumer2, {
           value: price,
         });
 
@@ -858,7 +928,7 @@ describe("MockVRFCoordinator", function () {
       // Consumer1 makes another request
       await coordinator
         .connect(consumer1)
-        .requestRandomnessPayInNative(callbackGasLimit, numWords, {
+        .requestRandomnessPayInNative(callbackGasLimit, numWords, consumer1, {
           value: price,
         });
 
@@ -881,7 +951,7 @@ describe("MockVRFCoordinator", function () {
       await expect(
         coordinator
           .connect(consumer1)
-          .requestRandomnessPayInNative(callbackGasLimit, maxWords, {
+          .requestRandomnessPayInNative(callbackGasLimit, maxWords, consumer1, {
             value: price,
           }),
       ).to.not.be.reverted;
@@ -903,7 +973,7 @@ describe("MockVRFCoordinator", function () {
       await expect(
         coordinator
           .connect(consumer1)
-          .requestRandomnessPayInNative(minGasLimit, numWords, {
+          .requestRandomnessPayInNative(minGasLimit, numWords, consumer1, {
             value: price,
           }),
       ).to.not.be.reverted;
@@ -921,7 +991,7 @@ describe("MockVRFCoordinator", function () {
       await expect(
         coordinator
           .connect(consumer1)
-          .requestRandomnessPayInNative(maxGasLimit, numWords, {
+          .requestRandomnessPayInNative(maxGasLimit, numWords, consumer1, {
             value: price,
           }),
       ).to.not.be.reverted;
@@ -952,8 +1022,14 @@ describe("MockVRFCoordinator", function () {
 
   describe("VRF Interface Compatibility", function () {
     it("Should implement fulfillRandomWords interface", async function () {
-      const { coordinator, requestId, callbackGasLimit, numWords, consumer1 } =
-        await loadFixture(deployWithRequestFixture);
+      const {
+        coordinator,
+        requestId,
+        callbackGasLimit,
+        numWords,
+        requestGasPrice,
+        consumer1,
+      } = await loadFixture(deployWithRequestFixture);
 
       // Mock VRF proof parameters
       const publicKey: [bigint, bigint] = [123n, 456n];
@@ -976,9 +1052,11 @@ describe("MockVRFCoordinator", function () {
       await expect(
         coordinator.fulfillRandomWords(
           requestId,
-          consumer1.address,
+          consumer1,
           callbackGasLimit,
           numWords,
+          consumer1, // refund address
+          requestGasPrice,
           publicKey,
           proof,
           uPoint,
@@ -989,8 +1067,13 @@ describe("MockVRFCoordinator", function () {
     });
 
     it("Should validate commitment in fulfillRandomWords", async function () {
-      const { coordinator, callbackGasLimit, numWords, consumer1 } =
-        await loadFixture(deployWithRequestFixture);
+      const {
+        coordinator,
+        callbackGasLimit,
+        numWords,
+        requestGasPrice,
+        consumer1,
+      } = await loadFixture(deployWithRequestFixture);
 
       // Invalid request ID should fail commitment validation
       const invalidRequestId = 999999n;
@@ -1016,6 +1099,8 @@ describe("MockVRFCoordinator", function () {
           consumer1.address,
           callbackGasLimit,
           numWords,
+          consumer1.address, // refund address
+          requestGasPrice,
           publicKey,
           proof,
           uPoint,
@@ -1039,7 +1124,7 @@ describe("MockVRFCoordinator", function () {
 
       const tx = await coordinator
         .connect(consumer1)
-        .requestRandomnessPayInNative(callbackGasLimit, numWords, {
+        .requestRandomnessPayInNative(callbackGasLimit, numWords, consumer1, {
           value: price,
         });
       const receipt = await tx.wait();
@@ -1049,7 +1134,7 @@ describe("MockVRFCoordinator", function () {
     });
 
     it("Should use reasonable gas for fulfillment operations", async function () {
-      const { coordinator, requestId, numWords } = await loadFixture(
+      const { coordinator, requestId, numWords, consumer1 } = await loadFixture(
         deployWithRequestFixture,
       );
 
@@ -1057,7 +1142,11 @@ describe("MockVRFCoordinator", function () {
         BigInt(i + 1),
       );
 
-      const tx = await coordinator.fulfillRequestMock(requestId, randomWords);
+      const tx = await coordinator.fulfillRequestMock(
+        requestId,
+        randomWords,
+        consumer1,
+      );
       const receipt = await tx.wait();
 
       // Should use reasonable gas for fulfillment (updated threshold)
@@ -1076,7 +1165,9 @@ describe("MockVRFCoordinator", function () {
         await coordinator.calculateRequestPriceNative(callbackGasLimit);
       const tx1 = await coordinator
         .connect(consumer1)
-        .requestRandomnessPayInNative(callbackGasLimit, 1, { value: price1 });
+        .requestRandomnessPayInNative(callbackGasLimit, 1, consumer1, {
+          value: price1,
+        });
       const receipt1 = await tx1.wait();
 
       // Test with 5 words
@@ -1084,7 +1175,9 @@ describe("MockVRFCoordinator", function () {
         await coordinator.calculateRequestPriceNative(callbackGasLimit);
       const tx5 = await coordinator
         .connect(consumer1)
-        .requestRandomnessPayInNative(callbackGasLimit, 5, { value: price5 });
+        .requestRandomnessPayInNative(callbackGasLimit, 5, consumer1, {
+          value: price5,
+        });
       const receipt5 = await tx5.wait();
 
       // Gas usage should be similar since the number of words doesn't significantly affect request gas
@@ -1141,7 +1234,7 @@ describe("MockVRFCoordinator", function () {
     }
 
     it("Should handle consumer callback failure and emit failure events", async function () {
-      const { coordinator, requestId, numWords } = await loadFixture(
+      const { coordinator, requestId, numWords, consumer1 } = await loadFixture(
         deployWithFailingConsumerFixture,
       );
 
@@ -1150,7 +1243,9 @@ describe("MockVRFCoordinator", function () {
       );
 
       // This should trigger the failure path
-      await expect(coordinator.fulfillRequestMock(requestId, randomWords))
+      await expect(
+        coordinator.fulfillRequestMock(requestId, randomWords, consumer1),
+      )
         .to.emit(coordinator, "ConsumerCallbackFailed")
         .and.to.emit(coordinator, "DebugFulfillment")
         .withArgs(requestId, false, (reason: string) =>
@@ -1170,7 +1265,7 @@ describe("MockVRFCoordinator", function () {
     });
 
     it("Should handle consumer callback failure with Error(string) revert", async function () {
-      const { coordinator, requestId, numWords } = await loadFixture(
+      const { coordinator, requestId, numWords, consumer1 } = await loadFixture(
         deployWithFailingConsumerFixture,
       );
 
@@ -1186,12 +1281,14 @@ describe("MockVRFCoordinator", function () {
       const price =
         await coordinator.calculateRequestPriceNative(callbackGasLimit);
 
-      const tx = await revertingConsumer.requestRandomness(
-        await coordinator.getAddress(),
-        callbackGasLimit,
-        numWords,
-        { value: price },
-      );
+      const tx = await revertingConsumer
+        .connect(consumer1)
+        .requestRandomness(
+          await coordinator.getAddress(),
+          callbackGasLimit,
+          numWords,
+          { value: price },
+        );
       const receipt = await tx.wait();
 
       // Extract request ID
@@ -1208,7 +1305,9 @@ describe("MockVRFCoordinator", function () {
       const randomWords = [123n, 456n];
 
       // This should trigger the Error(string) parsing path
-      await expect(coordinator.fulfillRequestMock(revertRequestId, randomWords))
+      await expect(
+        coordinator.fulfillRequestMock(revertRequestId, randomWords, consumer1),
+      )
         .to.emit(coordinator, "DebugFulfillment")
         .withArgs(revertRequestId, false, (reason: string) =>
           reason.includes("Custom revert message"),
@@ -1216,7 +1315,7 @@ describe("MockVRFCoordinator", function () {
     });
 
     it("Should handle consumer callback failure with custom error", async function () {
-      const { coordinator, requestId, numWords } = await loadFixture(
+      const { coordinator, requestId, numWords, consumer1 } = await loadFixture(
         deployWithFailingConsumerFixture,
       );
 
@@ -1232,39 +1331,25 @@ describe("MockVRFCoordinator", function () {
       const price =
         await coordinator.calculateRequestPriceNative(callbackGasLimit);
 
-      const tx = await (customErrorConsumer as any).requestRandomness(
-        await coordinator.getAddress(),
-        callbackGasLimit,
-        numWords,
-        { value: price },
-      );
+      const tx = await customErrorConsumer
+        .connect(consumer1)
+        .requestRandomness(
+          await coordinator.getAddress(),
+          callbackGasLimit,
+          numWords,
+          { value: price },
+        );
       const receipt = await tx.wait();
 
       // Extract request ID
-      interface LogWithData {
-        logs: Array<{
-          topics: string[];
-          data: string;
-          [key: string]: any;
-        }>;
-      }
-
-      interface ParsedLogEvent {
-        name: string;
-        args: any[];
-      }
-
-      const event = (receipt as LogWithData | null)?.logs.find(
-        (log: { topics: string[]; data: string; [key: string]: any }) => {
-          try {
-            const parsed: ParsedLogEvent | null =
-              coordinator.interface.parseLog(log);
-            return parsed?.name === "RandomWordsRequested";
-          } catch {
-            return false;
-          }
-        },
-      );
+      const event = receipt?.logs.find((log) => {
+        try {
+          const parsed = coordinator.interface.parseLog(log);
+          return parsed?.name === "RandomWordsRequested";
+        } catch {
+          return false;
+        }
+      });
 
       const customErrorRequestId = coordinator.interface.parseLog(event!)
         ?.args[0];
@@ -1272,7 +1357,11 @@ describe("MockVRFCoordinator", function () {
 
       // This should trigger the custom error parsing path
       await expect(
-        coordinator.fulfillRequestMock(customErrorRequestId, randomWords),
+        coordinator.fulfillRequestMock(
+          customErrorRequestId,
+          randomWords,
+          consumer1,
+        ),
       )
         .to.emit(coordinator, "DebugFulfillment")
         .withArgs(
@@ -1283,7 +1372,9 @@ describe("MockVRFCoordinator", function () {
     });
 
     it("Should handle consumer callback failure with empty revert data", async function () {
-      const { coordinator } = await loadFixture(deployCoordinatorMockFixture);
+      const { coordinator, consumer1 } = await loadFixture(
+        deployCoordinatorMockFixture,
+      );
 
       // Deploy a consumer that reverts with no data
       const EmptyRevertVRFConsumer = await ethers.getContractFactory(
@@ -1322,7 +1413,11 @@ describe("MockVRFCoordinator", function () {
 
       // This should trigger the empty revert data path
       await expect(
-        coordinator.fulfillRequestMock(emptyRevertRequestId, randomWords),
+        coordinator.fulfillRequestMock(
+          emptyRevertRequestId,
+          randomWords,
+          consumer1,
+        ),
       )
         .to.emit(coordinator, "DebugFulfillment")
         .withArgs(
@@ -1333,7 +1428,9 @@ describe("MockVRFCoordinator", function () {
     });
 
     it("Should handle Error(string) with empty message", async function () {
-      const { coordinator } = await loadFixture(deployCoordinatorMockFixture);
+      const { coordinator, consumer1 } = await loadFixture(
+        deployCoordinatorMockFixture,
+      );
 
       // Deploy a consumer that reverts with Error(string) but empty message
       const EmptyErrorVRFConsumer = await ethers.getContractFactory(
@@ -1348,12 +1445,14 @@ describe("MockVRFCoordinator", function () {
       const price =
         await coordinator.calculateRequestPriceNative(callbackGasLimit);
 
-      const tx = await emptyErrorConsumer.requestRandomness(
-        await coordinator.getAddress(),
-        callbackGasLimit,
-        numWords,
-        { value: price },
-      );
+      const tx = await emptyErrorConsumer
+        .connect(consumer1)
+        .requestRandomness(
+          await coordinator.getAddress(),
+          callbackGasLimit,
+          numWords,
+          { value: price },
+        );
       const receipt = await tx.wait();
 
       // Extract request ID
@@ -1372,7 +1471,11 @@ describe("MockVRFCoordinator", function () {
 
       // This should trigger the Error(string) with no message path
       await expect(
-        coordinator.fulfillRequestMock(emptyErrorRequestId, randomWords),
+        coordinator.fulfillRequestMock(
+          emptyErrorRequestId,
+          randomWords,
+          consumer1,
+        ),
       )
         .to.emit(coordinator, "DebugFulfillment")
         .withArgs(
@@ -1385,7 +1488,9 @@ describe("MockVRFCoordinator", function () {
 
   describe("Error Parsing Coverage", function () {
     it("Should handle Error(string) with malformed ABI data", async function () {
-      const { coordinator } = await loadFixture(deployCoordinatorMockFixture);
+      const { coordinator, consumer1 } = await loadFixture(
+        deployCoordinatorMockFixture,
+      );
 
       // Deploy a consumer that creates malformed Error(string) data
       const MalformedErrorVRFConsumer = await ethers.getContractFactory(
@@ -1400,12 +1505,14 @@ describe("MockVRFCoordinator", function () {
       const price =
         await coordinator.calculateRequestPriceNative(callbackGasLimit);
 
-      const tx = await malformedConsumer.requestRandomness(
-        await coordinator.getAddress(),
-        callbackGasLimit,
-        numWords,
-        { value: price },
-      );
+      const tx = await malformedConsumer
+        .connect(consumer1)
+        .requestRandomness(
+          await coordinator.getAddress(),
+          callbackGasLimit,
+          numWords,
+          { value: price },
+        );
       const receipt = await tx.wait();
 
       // Extract request ID
@@ -1422,7 +1529,9 @@ describe("MockVRFCoordinator", function () {
       const randomWords = [123n];
 
       // This should trigger the catch block in decodeErrorString
-      await expect(coordinator.fulfillRequestMock(requestId, randomWords))
+      await expect(
+        coordinator.fulfillRequestMock(requestId, randomWords, consumer1),
+      )
         .to.emit(coordinator, "DebugFulfillment")
         .withArgs(
           requestId,
@@ -1432,7 +1541,9 @@ describe("MockVRFCoordinator", function () {
     });
 
     it("Should handle Error(string) selector with exactly 4 bytes", async function () {
-      const { coordinator } = await loadFixture(deployCoordinatorMockFixture);
+      const { coordinator, consumer1 } = await loadFixture(
+        deployCoordinatorMockFixture,
+      );
 
       // Deploy a consumer that returns only the Error(string) selector with no data
       const OnlySelectorVRFConsumer = await ethers.getContractFactory(
@@ -1447,12 +1558,14 @@ describe("MockVRFCoordinator", function () {
       const price =
         await coordinator.calculateRequestPriceNative(callbackGasLimit);
 
-      const tx = await onlySelectorConsumer.requestRandomness(
-        await coordinator.getAddress(),
-        callbackGasLimit,
-        numWords,
-        { value: price },
-      );
+      const tx = await onlySelectorConsumer
+        .connect(consumer1)
+        .requestRandomness(
+          await coordinator.getAddress(),
+          callbackGasLimit,
+          numWords,
+          { value: price },
+        );
       const receipt = await tx.wait();
 
       // Extract request ID
@@ -1469,7 +1582,9 @@ describe("MockVRFCoordinator", function () {
       const randomWords = [456n];
 
       // This should trigger the "returnData.length > 4" false branch
-      await expect(coordinator.fulfillRequestMock(requestId, randomWords))
+      await expect(
+        coordinator.fulfillRequestMock(requestId, randomWords, consumer1),
+      )
         .to.emit(coordinator, "DebugFulfillment")
         .withArgs(
           requestId,
@@ -1479,7 +1594,9 @@ describe("MockVRFCoordinator", function () {
     });
 
     it("Should handle revert data with less than 4 bytes", async function () {
-      const { coordinator } = await loadFixture(deployCoordinatorMockFixture);
+      const { coordinator, consumer1 } = await loadFixture(
+        deployCoordinatorMockFixture,
+      );
 
       // Deploy a consumer that returns minimal revert data (< 4 bytes)
       const ShortRevertVRFConsumer = await ethers.getContractFactory(
@@ -1516,7 +1633,9 @@ describe("MockVRFCoordinator", function () {
       const randomWords = [789n];
 
       // This should trigger the "else" branch for data < 4 bytes but > 0 bytes
-      await expect(coordinator.fulfillRequestMock(requestId, randomWords))
+      await expect(
+        coordinator.fulfillRequestMock(requestId, randomWords, consumer1),
+      )
         .to.emit(coordinator, "DebugFulfillment")
         .withArgs(
           requestId,
@@ -1526,7 +1645,9 @@ describe("MockVRFCoordinator", function () {
     });
 
     it("Should handle non-Error(string) selector with data", async function () {
-      const { coordinator } = await loadFixture(deployCoordinatorMockFixture);
+      const { coordinator, consumer1 } = await loadFixture(
+        deployCoordinatorMockFixture,
+      );
 
       // Deploy a consumer that returns a different selector with data
       const NonErrorSelectorVRFConsumer = await ethers.getContractFactory(
@@ -1541,12 +1662,14 @@ describe("MockVRFCoordinator", function () {
       const price =
         await coordinator.calculateRequestPriceNative(callbackGasLimit);
 
-      const tx = await nonErrorConsumer.requestRandomness(
-        await coordinator.getAddress(),
-        callbackGasLimit,
-        numWords,
-        { value: price },
-      );
+      const tx = await nonErrorConsumer
+        .connect(consumer1)
+        .requestRandomness(
+          await coordinator.getAddress(),
+          callbackGasLimit,
+          numWords,
+          { value: price },
+        );
       const receipt = await tx.wait();
 
       // Extract request ID
@@ -1563,7 +1686,9 @@ describe("MockVRFCoordinator", function () {
       const randomWords = [999n];
 
       // This should trigger the "not Error(string)" branch
-      await expect(coordinator.fulfillRequestMock(requestId, randomWords))
+      await expect(
+        coordinator.fulfillRequestMock(requestId, randomWords, consumer1),
+      )
         .to.emit(coordinator, "DebugFulfillment")
         .withArgs(
           requestId,

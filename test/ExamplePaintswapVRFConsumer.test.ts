@@ -274,13 +274,14 @@ describe("ExampleVRFConsumer", function () {
       const fulfillTx = await mockCoordinator.fulfillRequestMock(
         requestId,
         customRandomWords,
+        user1.address,
       );
       await fulfillTx.wait();
 
       // Verify fulfillment
       expect(await consumer.fulfilledRequests()).to.equal(1);
 
-      const [, fulfilledAfter, , , , randomWords] =
+      const [, fulfilledAfter, , , , , randomWords] =
         await consumer.getRequestStatus(requestId);
       expect(fulfilledAfter).to.be.true;
       expect(randomWords).to.deep.equal(customRandomWords);
@@ -290,13 +291,19 @@ describe("ExampleVRFConsumer", function () {
     });
 
     it("Should revert when trying to fulfill non-existent request", async function () {
-      const { mockCoordinator } = await loadFixture(deployWithFundsFixture);
+      const { user1, mockCoordinator } = await loadFixture(
+        deployWithFundsFixture,
+      );
 
       const nonExistentRequestId = 999999n;
       const randomWords = [12345n];
 
       await expect(
-        mockCoordinator.fulfillRequestMock(nonExistentRequestId, randomWords),
+        mockCoordinator.fulfillRequestMock(
+          nonExistentRequestId,
+          randomWords,
+          user1.address,
+        ),
       ).to.be.revertedWithCustomError(mockCoordinator, "RequestNotFound");
     });
 
@@ -324,11 +331,15 @@ describe("ExampleVRFConsumer", function () {
       const requestId = parsedEvent?.args[0];
 
       // Fulfill once
-      await mockCoordinator.fulfillRequestMock(requestId, [12345n]);
+      await mockCoordinator.fulfillRequestMock(
+        requestId,
+        [12345n],
+        user1.address,
+      );
 
       // Try to fulfill again
       await expect(
-        mockCoordinator.fulfillRequestMock(requestId, [67890n]),
+        mockCoordinator.fulfillRequestMock(requestId, [67890n], user1.address),
       ).to.be.revertedWithCustomError(mockCoordinator, "CommitmentMismatch");
     });
 
@@ -361,7 +372,7 @@ describe("ExampleVRFConsumer", function () {
       // Verify fulfillment
       expect(await consumer.fulfilledRequests()).to.equal(1);
 
-      const [, fulfilled, , , , randomWords] =
+      const [, fulfilled, , , , , randomWords] =
         await consumer.getRequestStatus(requestId);
       expect(fulfilled).to.be.true;
       expect(randomWords).to.have.length(3);
@@ -396,23 +407,42 @@ describe("ExampleVRFConsumer", function () {
       const requestId = parsedEvent?.args[0];
 
       // Check status before fulfillment
-      let [exists, fulfilled, requester, numWords, requestedAt, randomWords] =
-        await consumer.getRequestStatus(requestId);
+      let [
+        exists,
+        fulfilled,
+        requester,
+        numWords,
+        refundee,
+        requestedAt,
+        randomWords,
+      ] = await consumer.getRequestStatus(requestId);
 
       expect(exists).to.be.true;
       expect(fulfilled).to.be.false;
       expect(requester).to.equal(user1.address);
       expect(numWords).to.equal(3);
+      expect(refundee).to.equal(user1.address);
       expect(requestedAt).to.be.gt(0);
       expect(randomWords).to.have.length(0);
 
       // Fulfill the request
       const customRandomWords = [111n, 222n, 333n];
-      await mockCoordinator.fulfillRequestMock(requestId, customRandomWords);
+      await mockCoordinator.fulfillRequestMock(
+        requestId,
+        customRandomWords,
+        user1.address,
+      );
 
       // Check status after fulfillment
-      [exists, fulfilled, requester, numWords, requestedAt, randomWords] =
-        await consumer.getRequestStatus(requestId);
+      [
+        exists,
+        fulfilled,
+        requester,
+        numWords,
+        refundee,
+        requestedAt,
+        randomWords,
+      ] = await consumer.getRequestStatus(requestId);
 
       expect(exists).to.be.true;
       expect(fulfilled).to.be.true;
@@ -467,7 +497,11 @@ describe("ExampleVRFConsumer", function () {
       expect(uniqueRequestIds.size).to.equal(allRequestIds.length);
 
       // Fulfill one request and verify enumeration still works
-      await mockCoordinator.fulfillRequestMock(user1Requests[0], [42n]);
+      await mockCoordinator.fulfillRequestMock(
+        user1Requests[0],
+        [42n],
+        user1.address,
+      );
 
       const user1RequestsAfter = await consumer.getRequestsByRequester(
         user1.address,
@@ -591,7 +625,7 @@ describe("ExampleVRFConsumer", function () {
 
   describe("VRF Fulfillment Edge Cases", function () {
     it("Should handle fulfillment of non-existent request gracefully", async function () {
-      const { consumer, mockCoordinator } = await loadFixture(
+      const { mockCoordinator, user1 } = await loadFixture(
         deployVRFConsumerFixture,
       );
 
@@ -601,7 +635,11 @@ describe("ExampleVRFConsumer", function () {
 
       // This should revert with RequestNotFound when called through coordinator
       await expect(
-        mockCoordinator.fulfillRequestMock(nonExistentRequestId, randomWords),
+        mockCoordinator.fulfillRequestMock(
+          nonExistentRequestId,
+          randomWords,
+          user1,
+        ),
       ).to.be.revertedWithCustomError(mockCoordinator, "RequestNotFound");
     });
 
@@ -628,7 +666,7 @@ describe("ExampleVRFConsumer", function () {
       const requestId = parsedEvent?.args[0];
 
       // Fulfill once through mock coordinator
-      await mockCoordinator.fulfillRequestMock(requestId, [12345n]);
+      await mockCoordinator.fulfillRequestMock(requestId, [12345n], user1);
 
       // Verify fulfilled
       const [, fulfilled] = await consumer.getRequestStatus(requestId);
@@ -636,7 +674,7 @@ describe("ExampleVRFConsumer", function () {
 
       // Try to fulfill again through coordinator (should revert at coordinator level)
       await expect(
-        mockCoordinator.fulfillRequestMock(requestId, [67890n]),
+        mockCoordinator.fulfillRequestMock(requestId, [67890n], user1),
       ).to.be.revertedWithCustomError(mockCoordinator, "CommitmentMismatch");
     });
 
@@ -665,8 +703,9 @@ describe("ExampleVRFConsumer", function () {
       const realRequestId = parsedEvent?.args[0];
 
       // First fulfillment should work
-      await expect(mockCoordinator.fulfillRequestMock(realRequestId, [67890n]))
-        .to.not.be.reverted;
+      await expect(
+        mockCoordinator.fulfillRequestMock(realRequestId, [67890n], user1),
+      ).to.not.be.reverted;
 
       // Verify it was fulfilled
       const [, fulfilled] = await consumer.getRequestStatus(realRequestId);
@@ -674,11 +713,11 @@ describe("ExampleVRFConsumer", function () {
 
       // Second fulfillment attempt should be caught by coordinator
       await expect(
-        mockCoordinator.fulfillRequestMock(realRequestId, [11111n]),
+        mockCoordinator.fulfillRequestMock(realRequestId, [11111n], user1),
       ).to.be.revertedWithCustomError(mockCoordinator, "CommitmentMismatch");
 
       // Should still have the original random words
-      const [, , , , , storedRandomWords] =
+      const [, , , , , , storedRandomWords] =
         await consumer.getRequestStatus(realRequestId);
       expect(storedRandomWords).to.deep.equal([67890n]);
     });
@@ -717,7 +756,7 @@ describe("ExampleVRFConsumer", function () {
       // First, let's fulfill with the correct number of words but test the empty array handling
       // in _processRandomWords by fulfilling normally and verifying the function works
       await expect(
-        mockCoordinator.fulfillRequestMock(requestId, [123n]),
+        mockCoordinator.fulfillRequestMock(requestId, [123n], user1),
       ).to.emit(consumer, "RandomDiceRoll"); // Should emit dice roll event
 
       // Verify the request was marked as fulfilled
@@ -753,7 +792,7 @@ describe("ExampleVRFConsumer", function () {
 
       // The coordinator will prevent empty arrays, so we test with valid data
       // and verify that the processing works correctly
-      await expect(mockCoordinator.fulfillRequestMock(requestId, [555n]))
+      await expect(mockCoordinator.fulfillRequestMock(requestId, [555n], user1))
         .to.emit(consumer, "RandomDiceRoll")
         .and.to.emit(consumer, "RandomLotteryNumbers")
         .and.to.not.emit(consumer, "RandomPercentage"); // Only 1 word, so no percentage
@@ -788,10 +827,11 @@ describe("ExampleVRFConsumer", function () {
       const requestId = parsedEvent?.args[0];
 
       // Fulfill and check that events are emitted with values in expected ranges
-      const fulfillTx = await mockCoordinator.fulfillRequestMock(requestId, [
-        123456789n,
-        987654321n,
-      ]);
+      const fulfillTx = await mockCoordinator.fulfillRequestMock(
+        requestId,
+        [123456789n, 987654321n],
+        user1,
+      );
       const fulfillReceipt = await fulfillTx.wait();
 
       // Check for dice roll event (should be 1-6)
@@ -984,7 +1024,9 @@ describe("ExampleVRFConsumer", function () {
 
       // Fulfill request and check for event
       const randomWords = [42n];
-      await expect(mockCoordinator.fulfillRequestMock(requestId, randomWords))
+      await expect(
+        mockCoordinator.fulfillRequestMock(requestId, randomWords, user1),
+      )
         .to.emit(consumer, "RandomnessFulfilled")
         .withArgs(
           requestId,
@@ -1022,6 +1064,7 @@ describe("ExampleVRFConsumer", function () {
       const fulfillTx = await mockCoordinator.fulfillRequestMock(
         requestId,
         randomWords,
+        user1,
       );
 
       await expect(fulfillTx)
@@ -1066,6 +1109,7 @@ describe("ExampleVRFConsumer", function () {
       const fulfillTx = await mockCoordinator.fulfillRequestMock(
         requestId,
         randomWords,
+        user1,
       );
 
       await expect(fulfillTx)
@@ -1172,8 +1216,16 @@ describe("ExampleVRFConsumer", function () {
       const parsedEvent2 = consumer.interface.parseLog(requestEvent2!);
       const requestId2 = parsedEvent2?.args[0];
 
-      await mockCoordinator.fulfillRequestMock(requestId1, [123n]);
-      await mockCoordinator.fulfillRequestMock(requestId2, [456n, 789n]);
+      await mockCoordinator.fulfillRequestMock(
+        requestId1,
+        [123n],
+        user1.address,
+      );
+      await mockCoordinator.fulfillRequestMock(
+        requestId2,
+        [456n, 789n],
+        user2.address,
+      );
 
       [total, fulfilled_stats, pending] = await consumer.getStats();
       expect(total).to.equal(2);
@@ -1265,9 +1317,13 @@ describe("ExampleVRFConsumer", function () {
       const randomWords = Array.from({ length: Number(maxWords) }, (_, i) =>
         BigInt(i + 1),
       );
-      await mockCoordinator.fulfillRequestMock(requestId, randomWords);
+      await mockCoordinator.fulfillRequestMock(
+        requestId,
+        randomWords,
+        user1.address,
+      );
 
-      const [, fulfilled, , , , retrievedWords] =
+      const [, fulfilled, , , , , retrievedWords] =
         await consumer.getRequestStatus(requestId);
       expect(fulfilled).to.be.true;
       expect(retrievedWords).to.have.length(Number(maxWords));
@@ -1284,7 +1340,7 @@ describe("ExampleVRFConsumer", function () {
       // Try to fulfill with mismatched request ID (should revert in coordinator)
       const fakeRequestId = 999999n;
       await expect(
-        mockCoordinator.fulfillRequestMock(fakeRequestId, [123n]),
+        mockCoordinator.fulfillRequestMock(fakeRequestId, [123n], user1),
       ).to.be.revertedWithCustomError(mockCoordinator, "RequestNotFound");
     });
 
@@ -1314,7 +1370,7 @@ describe("ExampleVRFConsumer", function () {
       // Try to fulfill with wrong number of words
       const wrongRandomWords = [123n, 456n]; // Only 2 words instead of 3
       await expect(
-        mockCoordinator.fulfillRequestMock(requestId, wrongRandomWords),
+        mockCoordinator.fulfillRequestMock(requestId, wrongRandomWords, user1),
       ).to.be.revertedWithCustomError(mockCoordinator, "InvalidNumWords");
     });
   });
@@ -1369,9 +1425,11 @@ describe("ExampleVRFConsumer", function () {
       const requestId = parsedEvent?.args[0];
 
       // Fulfill and check gas usage
-      const fulfillTx = await mockCoordinator.fulfillRequestMock(requestId, [
-        789n,
-      ]);
+      const fulfillTx = await mockCoordinator.fulfillRequestMock(
+        requestId,
+        [789n],
+        user1,
+      );
       const fulfillReceipt = await fulfillTx.wait();
 
       // Should use reasonable gas for fulfillment
@@ -1446,7 +1504,7 @@ describe("ExampleVRFConsumer", function () {
       const parsedEvent = consumer.interface.parseLog(requestEvent!);
       const requestId = parsedEvent?.args[0];
 
-      await mockCoordinator.fulfillRequestMock(requestId, [111n, 222n]);
+      await mockCoordinator.fulfillRequestMock(requestId, [111n, 222n], user1);
 
       // After fulfillment
       [total, pending, successes, failures, totalWords] =
@@ -1487,7 +1545,7 @@ describe("ExampleVRFConsumer", function () {
       expect(wasFulfilled).to.be.false;
 
       // Fulfill request
-      await mockCoordinator.fulfillRequestMock(requestId, [333n]);
+      await mockCoordinator.fulfillRequestMock(requestId, [333n], user1);
 
       // After fulfillment
       [wasSuccess, wasFulfilled] =
