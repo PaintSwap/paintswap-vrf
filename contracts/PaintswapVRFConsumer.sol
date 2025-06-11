@@ -43,7 +43,7 @@ abstract contract PaintswapVRFConsumer is IPaintswapVRFConsumer {
   }
 
   /**
-   * @dev Requests random words from the VRF coordinator, paying with native currency
+   * @dev Requests random words from the VRF coordinator, paying with native currency, specifying a refundee
    * @param callbackGasLimit Maximum gas allowed for the fulfillment callback
    * @param numWords Number of random words to request
    * @param gasPayment Amount of native currency to pay for the request
@@ -54,14 +54,36 @@ abstract contract PaintswapVRFConsumer is IPaintswapVRFConsumer {
   function _requestRandomnessPayInNative(
     uint256 callbackGasLimit,
     uint256 numWords,
-    address refundee,
-    uint256 gasPayment
+    uint256 gasPayment,
+    address refundee
   ) internal returns (uint256 requestId) {
     return
       _vrfCoordinator.requestRandomnessPayInNative{value: gasPayment}(
         callbackGasLimit,
         numWords,
         refundee
+      );
+  }
+
+  /**
+   * @dev Requests random words from the VRF coordinator, paying with native currency, refunding to the sender
+   * @param callbackGasLimit Maximum gas allowed for the fulfillment callback
+   * @param numWords Number of random words to request
+   * @param gasPayment Amount of native currency to pay for the request
+   * @return requestId Unique identifier for this randomness request
+   * @notice The contract must have sufficient balance to cover the value parameter
+   */
+  function _requestRandomnessPayInNative(
+    uint256 callbackGasLimit,
+    uint256 numWords,
+    uint256 gasPayment
+  ) internal returns (uint256 requestId) {
+    return
+      _requestRandomnessPayInNative(
+        callbackGasLimit,
+        numWords,
+        gasPayment,
+        msg.sender
       );
   }
 

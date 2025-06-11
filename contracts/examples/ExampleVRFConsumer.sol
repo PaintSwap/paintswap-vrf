@@ -154,8 +154,8 @@ contract ExampleVRFConsumer is PaintswapVRFConsumer {
     requestId = _requestRandomnessPayInNative(
       CALLBACK_GAS_LIMIT,
       numWords,
-      msg.sender, // refundee
-      msg.value // fullfillment gas
+      msg.value, // fullfillment gas
+      msg.sender // refundee
     );
 
     // Store request details
@@ -223,7 +223,6 @@ contract ExampleVRFConsumer is PaintswapVRFConsumer {
     requestId = _requestRandomnessPayInNative(
       CALLBACK_GAS_LIMIT,
       numWords,
-      address(this), // Refundee is the contract itself
       requiredPayment
     );
 
