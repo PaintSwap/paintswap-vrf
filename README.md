@@ -79,7 +79,6 @@ contract MyContract is PaintswapVRFConsumer {
 
     function _fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
         address user = requestToUser[requestId];
-        require(user != address(0), InvalidRequest(requestId));
 
         // Process your random words here
         emit RandomnessReceived(requestId, randomWords);
