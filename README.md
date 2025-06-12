@@ -12,7 +12,9 @@ Paintswap VRF is a comprehensive solution for generating verifiable random numbe
 
 The only fee required is the fulfillment gas payment, based on the callback gas limit and the current gas prices seen on the network. To use the service implement the `PaintswapVRFConsumer` contract or `IPaintswapVRFConsumer` interface, price the request, then submit the fulfillment gas payment either from the user or supplied at request time by the consumer contract. Our VRF Oracle will do the rest.
 
-Unused gas for the fulfillment callback is refunded to the `refundee` address specified in the callback. This could be anything from `tx.origin`, `msg.sender`, `address(this)`, or use `address(0)` to leave excess gas as a tip for the service 🙏. Note that there is a 50k gas threshold as well as a 10% Sonic network penalty on unused gas.
+Unused gas for the fulfillment callback is refunded to the `refundee` address specified in the callback. This could be anything from `tx.origin`, `msg.sender`, `address(this)`, or use `address(0)` to leave excess gas as a tip for the service 🙏.
+
+> _Note: there is a 50k gas threshold for refunds as well as a 10% Sonic network penalty on unused gas._
 
 ### Features
 
