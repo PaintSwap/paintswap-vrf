@@ -8,16 +8,19 @@ Paintswap VRF Dashboard: [https://vrf.paintswap.io](https://vrf.paintswap.io)
 
 ## Overview
 
-Paintswap VRF is a comprehensive solution for generating verifiable random numbers on-chain. It consists of a coordinator contract that manages randomness requests and oracle fulfillments, along with consumer contracts that can request and receive random numbers.
+Paintswap VRF is a comprehensive solution for generating verifiable random numbers on-chain. It consists of a coordinator contract that manages randomness requests and oracle fulfillments, along with consumer contracts that can request and receive random numbers. Typical round trip response time to fulfillment is 1-2 seconds.
+
+The only fee required is the fulfillment gas payment, based on the callback gas limit and the current gas prices seen on the network. To use the service implement the `PaintswapVRFConsumer` contract or `IPaintswapVRFConsumer` interface, price the request, then submit the fulfillment gas payment either from the user or supplied at request time by the consumer contract. Our VRF Oracle will do the rest.
+
+Unused gas for the fulfillment callback is refunded to the `refundee` address specified in the callback. This could be anything from `tx.origin`, `msg.sender`, `address(this)`, or use `address(0)` to leave excess gas as a tip for the service 🙏. Note that there is a 50k gas threshold as well as a 10% Sonic network penalty on unused gas.
 
 ### Features
 
 - ✅ **Verifiable Randomness**: Uses cryptographic proofs to ensure randomness cannot be manipulated
-- ✅ **Oracle Network**: Distributed oracle system for reliable fulfillment
 - ✅ **Gas Efficient**: Optimized for low-cost operations on Sonic
+- ✅ **Solidity Support**: Consumer contracts, interfaces, and mocks included
 - ✅ **TypeScript Support**: Full type definitions included
-- ✅ **Development Tools**: Mock contracts and examples for testing
-- ✅ **Battle Tested**: Comprehensive test suite with full coverage
+- ✅ **Blazing Fast**: Leverages the speed of the Sonic network
 
 ## Installation
 
@@ -57,13 +60,13 @@ contract MyContract is PaintswapVRFConsumer {
 
     function requestRandomness() external payable returns (uint256 requestId) {
         // Calculate the required payment for the VRF request
-        uint256 requestPrice = _calculateRequestPriceNative(CALLBACK_GAS_LIMIT);
-        require(msg.value >= requestPrice, InsufficientPayment());
+        uint256 gasPayment = _calculateRequestPriceNative(CALLBACK_GAS_LIMIT);
+        require(msg.value >= gasPayment, InsufficientPayment());
 
         // Request one random number
         uint256 numberOfWords = 1;
         address refundee = msg.sender;
-        requestId = _requestRandomnessPayInNative(CALLBACK_GAS_LIMIT, numberOfWords, refundee, requestPrice);
+        requestId = _requestRandomnessPayInNative(CALLBACK_GAS_LIMIT, numberOfWords, refundee, gasPayment);
 
         // Store the user for this request
         requestToUser[requestId] = msg.sender;
@@ -310,10 +313,10 @@ IPaintswapVRFConsumer Docs: [docs/interfaces/IPaintswapVRFConsumer.md](docs/inte
 abstract contract PaintswapVRFConsumer {
     // Request randomness with native payment
     function _requestRandomnessPayInNative(
-        uint256 callbackGasLimit,
-        uint256 numWords,
-        address refundee,
-        uint256 value
+        uint256 callbackGasLimit, // gas limit for callback
+        uint256 numWords,         // number of random words
+        uint256 refundee,         // gas refundee or address(0)
+        uint256 gasPayment        // fulfillment gas fee
     ) internal returns (uint256 requestId);
 
     // Calculate the cost of a request
@@ -338,15 +341,15 @@ PaintswapVRFConsumer Docs: [docs/PaintswapVRFConsumer.md](docs/PaintswapVRFConsu
 
 ```solidity
  event RandomWordsRequested(
-  uint256 indexed requestId,
-  uint256 callbackGasLimit,
-  uint256 numWords,
-  address indexed origin,
-  address indexed consumer,
-  uint256 nonce,
-  address refundee,
-  uint256 gasPricePaid,
-  uint256 requestedAt
+  uint256 indexed requestId, // unique request id
+  uint256 callbackGasLimit,  // gas limit for consumer callback
+  uint256 numWords,          // random words requested
+  address indexed origin,    // tx.origin of request
+  address indexed consumer,  // msg.sender of request
+  uint256 nonce,             // request nonce for consumer
+  address refundee,          // gas refunds or address(0)
+  uint256 gasPricePaid,      // fulfillment fee gass price
+  uint256 requestedAt        // block.timestamp of request
 );
 ```
 
@@ -354,11 +357,11 @@ PaintswapVRFConsumer Docs: [docs/PaintswapVRFConsumer.md](docs/PaintswapVRFConsu
 
 ```solidity
 event RandomWordsFulfilled(
-    uint256 indexed requestId,
-    uint256[] randomWords,
-    address indexed oracle,
-    bool callSuccess,
-    uint256 fulfilledAt
+    uint256 indexed requestId, // unique request id
+    uint256[] randomWords,     // random words generated
+    address indexed oracle,    // fulfillment worker
+    bool callSuccess,          // consumer callback result
+    uint256 fulfilledAt        // block.timestamp of fulfillment
 );
 ```
 
@@ -366,10 +369,12 @@ event RandomWordsFulfilled(
 
 ```solidity
 event ConsumerCallbackFailed(
-    uint256 indexed requestId,
-    uint8 indexed reason, // 1 = NotEnoughGas, 2 = NoCodeAtAddress, 3 = RevertedOrOutOfGas
-    address indexed target,
-    uint256 gasLeft
+    uint256 indexed requestId, // unique request id
+    uint8 indexed reason,      // 1 = NotEnoughGas,
+                               // 2 = NoCodeAtAddress,
+                               // 3 = RevertedOrOutOfGas
+    address indexed target,    // callback consumer contract
+    uint256 gasLeft            // gas remaining after callback
 );
 ```
 
