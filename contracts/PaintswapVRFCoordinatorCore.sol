@@ -71,10 +71,13 @@ abstract contract PaintswapVRFCoordinatorCore is IPaintswapVRFCoordinator {
     uint256 gasPricePaid,
     address refundee
   ) internal {
-    if (refundee != address(0)) {
-      uint256 gasRefund = callbackGasLimit > gasUsed
-        ? callbackGasLimit - gasUsed
+    if (refundee != address(0) && refundee != address(this)) {
+      // Calculate unused gas
+      uint256 unUsedGas = callbackGasLimit > gasUsed
+        ? (callbackGasLimit - gasUsed)
         : 0;
+      // 10% penalty on used gas
+      uint256 gasRefund = (unUsedGas * 9) / 10;
       // Don't bother refunding small amounts to avoid gas overhead
       if (gasRefund > 50_000) {
         uint256 refundAmount = (gasRefund * gasPricePaid);
