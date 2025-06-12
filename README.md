@@ -312,6 +312,10 @@ IPaintswapVRFConsumer Docs: [docs/interfaces/IPaintswapVRFConsumer.md](docs/inte
 
 ```solidity
 abstract contract PaintswapVRFConsumer {
+    // Calculate the cost of a request
+    function _calculateRequestPriceNative(uint256 callbackGasLimit)
+        internal view returns (uint256 requestPrice);
+
     // Request randomness with native payment
     function _requestRandomnessPayInNative(
         uint256 callbackGasLimit, // gas limit for callback
@@ -319,10 +323,6 @@ abstract contract PaintswapVRFConsumer {
         uint256 refundee,         // gas refundee or address(0)
         uint256 gasPayment        // fulfillment gas fee
     ) internal returns (uint256 requestId);
-
-    // Calculate the cost of a request
-    function _calculateRequestPriceNative(uint256 callbackGasLimit)
-        internal view returns (uint256 requestPrice);
 
     // Override this function to handle random words
     function _fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords)
