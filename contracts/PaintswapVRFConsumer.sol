@@ -43,6 +43,20 @@ abstract contract PaintswapVRFConsumer is IPaintswapVRFConsumer {
   }
 
   /**
+   * @dev Calculates the price in native currency for a randomness request
+   * @param callbackGasLimit Maximum gas allowed for the fulfillment callback
+   * @return requestPrice The price in native currency for the request
+   * @notice The price depends on the current gas price and the callback gas limit
+   */
+  function _calculateRequestPriceNative(
+    uint256 callbackGasLimit
+  ) internal view returns (uint256 requestPrice) {
+    requestPrice = _vrfCoordinator.calculateRequestPriceNative(
+      callbackGasLimit
+    );
+  }
+
+  /**
    * @dev Requests random words from the VRF coordinator, paying with native currency, specifying a refundee
    * @param callbackGasLimit Maximum gas allowed for the fulfillment callback
    * @param numWords Number of random words to request
@@ -66,20 +80,6 @@ abstract contract PaintswapVRFConsumer is IPaintswapVRFConsumer {
   }
 
   /**
-   * @dev Calculates the price in native currency for a randomness request
-   * @param callbackGasLimit Maximum gas allowed for the fulfillment callback
-   * @return requestPrice The price in native currency for the request
-   * @notice The price depends on the current gas price and the callback gas limit
-   */
-  function _calculateRequestPriceNative(
-    uint256 callbackGasLimit
-  ) internal view returns (uint256 requestPrice) {
-    requestPrice = _vrfCoordinator.calculateRequestPriceNative(
-      callbackGasLimit
-    );
-  }
-
-  /**
    * @dev Processes the received random words
    * @param requestId The ID of the request that corresponds to these random words
    * @param randomWords The array of random words received from the VRF coordinator
@@ -92,6 +92,7 @@ abstract contract PaintswapVRFConsumer is IPaintswapVRFConsumer {
 
   /**
    * @dev Callback function called by the VRF coordinator to deliver random words
+   * @dev Special care should be taken when overriding this function. Use `_fulfillRandomWords()` instead.
    * @param requestId The ID of the request to which these random words belong
    * @param randomWords The array of random words for the request
    * @notice This function can only be called by the VRF coordinator

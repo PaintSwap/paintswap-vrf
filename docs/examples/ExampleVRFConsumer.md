@@ -229,7 +229,7 @@ function rawFulfillRandomWords(uint256 requestId, uint256[] randomWords) externa
 
 This function can only be called by the VRF coordinator
 
-*Callback function called by the VRF coordinator to deliver random words*
+*Callback function called by the VRF coordinator to deliver random wordsSpecial care should be taken when overriding this function. Use `_fulfillRandomWords()` instead.*
 
 #### Parameters
 
