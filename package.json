@@ -13,6 +13,7 @@
     "random-number-generator"
   ],
   "license": "MIT",
+  "homepage": "https://vrf.paintswap.io",
   "repository": {
     "type": "git",
     "url": "https://github.com/PaintSwap/paintswap-vrf"
