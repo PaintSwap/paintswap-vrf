@@ -36,8 +36,8 @@ npm install @paintswap/vrf
 
 | Network       | Chain ID | VRF Coordinator                              |
 | ------------- | -------- | -------------------------------------------- |
-| Sonic Mainnet | 146      | Coming soon                                  |
-| Blaze Testnet | 57054    | `0xcCD87C20Dc14ED79c1F827800b5a9b8Ef2E43eC5` |
+| Sonic Mainnet | 146      | `0x6E3efcB244e74Cb898A7961061fAA43C3cf79691` |
+| Blaze Testnet | 57054    | `0x6E3efcB244e74Cb898A7961061fAA43C3cf79691` |
 
 ## Quick Start
 
@@ -94,7 +94,7 @@ contract MyContract is PaintswapVRFConsumer {
 import { ethers } from "ethers";
 import { PaintswapVRFCoordinator__factory } from "@paintswap/vrf";
 
-const vrfAddress = "0xcCD87C20Dc14ED79c1F827800b5a9b8Ef2E43eC5";
+const vrfAddress = "0x6E3efcB244e74Cb898A7961061fAA43C3cf79691";
 
 // Connect to the VRF Coordinator
 const provider = new ethers.JsonRpcProvider("https://rpc.soniclabs.com");
