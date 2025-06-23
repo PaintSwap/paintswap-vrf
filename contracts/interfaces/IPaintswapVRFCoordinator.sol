@@ -33,8 +33,14 @@ interface IPaintswapVRFCoordinator {
     address indexed target,
     uint256 gasLeft
   );
-
-  /// @dev Emitted when the gas refund after fulfillment fails
+  /// @dev Emitted when excess gas payment is refunded to the refundee
+  event RequestGasRefunded(
+    uint256 indexed requestId,
+    address indexed refundee,
+    uint256 gasRefunded,
+    bool refundedSuccessfully
+  );
+  /// @dev Emitted when the excess gas is refunded to the refundee
   event FulfillmentGasRefunded(
     uint256 indexed requestId,
     address indexed refundee,
