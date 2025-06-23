@@ -141,7 +141,7 @@ event FulfillmentGasRefunded(uint256 indexed requestId, address indexed refundee
 
 
 
-*Emitted when the gas refund after fulfillment fails*
+*Emitted when the excess gas is refunded to the refundee*
 
 #### Parameters
 
@@ -245,6 +245,25 @@ event RandomWordsRequested(uint256 indexed requestId, uint256 callbackGasLimit, 
 | refundee  | address | undefined |
 | gasPricePaid  | uint256 | undefined |
 | requestedAt  | uint256 | undefined |
+
+### RequestGasRefunded
+
+```solidity
+event RequestGasRefunded(uint256 indexed requestId, address indexed refundee, uint256 gasRefunded, bool refundedSuccessfully)
+```
+
+
+
+*Emitted when excess gas payment is refunded to the refundee*
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| requestId `indexed` | uint256 | undefined |
+| refundee `indexed` | address | undefined |
+| gasRefunded  | uint256 | undefined |
+| refundedSuccessfully  | bool | undefined |
 
 ### SignerAddressUpdated
 
