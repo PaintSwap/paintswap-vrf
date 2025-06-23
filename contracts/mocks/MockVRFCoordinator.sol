@@ -246,6 +246,8 @@ contract MockVRFCoordinator is PaintswapVRFCoordinatorCore {
       block.timestamp
     );
 
+    _refundExtraGasPayment(requestId, requiredPayment, refundee);
+
     return requestId;
   }
 

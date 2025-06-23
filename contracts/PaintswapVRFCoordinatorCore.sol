@@ -56,6 +56,27 @@ abstract contract PaintswapVRFCoordinatorCore is IPaintswapVRFCoordinator {
   }
 
   /**
+   * @notice Refunds any extra gas payment to the specified refundee address.
+   *
+   * @param requestId The unique identifier for the VRF request.
+   * @param requiredPayment The required payment for the request.
+   * @param refundee The address to refund in case of extra gas payment.
+   */
+  function _refundExtraGasPayment(
+    uint256 requestId,
+    uint256 requiredPayment,
+    address refundee
+  ) internal {
+    if (refundee != address(0)) {
+      uint256 refundAmount = ((msg.value - requiredPayment) * 9) / 10;
+      if (refundAmount != 0) {
+        (bool success, ) = refundee.call{value: refundAmount}("");
+        emit RequestGasRefunded(requestId, refundee, refundAmount, success);
+      }
+    }
+  }
+
+  /**
    * @notice Refunds the remaining gas to the specified refundee address.
    *
    * @param requestId The unique identifier for the VRF request.

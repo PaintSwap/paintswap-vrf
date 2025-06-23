@@ -1186,6 +1186,422 @@ describe("MockVRFCoordinator", function () {
     });
   });
 
+  describe("Gas Refund Functionality", function () {
+    it("Should refund unused gas when callback uses less than allocated gas limit", async function () {
+      const { coordinator, consumer1 } = await loadFixture(
+        deployCoordinatorMockFixture,
+      );
+
+      const callbackGasLimit = 500_000; // Allocate 500k gas
+      const numWords = 1;
+      const price =
+        await coordinator.calculateRequestPriceNative(callbackGasLimit);
+
+      // Make request with consumer1 as refundee
+      const tx = await coordinator
+        .connect(consumer1)
+        .requestRandomnessPayInNative(callbackGasLimit, numWords, consumer1, {
+          value: price,
+        });
+      const receipt = await tx.wait();
+
+      // Extract request ID
+      const event = receipt?.logs.find((log) => {
+        try {
+          const parsed = coordinator.interface.parseLog(log);
+          return parsed?.name === "RandomWordsRequested";
+        } catch {
+          return false;
+        }
+      });
+      const parsedEvent = coordinator.interface.parseLog(event!);
+      const requestId = parsedEvent?.args[0];
+
+      // Record refundee balance before fulfillment
+      const refundeeBalanceBefore = await ethers.provider.getBalance(
+        consumer1.address,
+      );
+
+      // Fulfill the request (this should trigger gas refund since callback will use much less than 500k gas)
+      const fulfillTx = await coordinator.fulfillRequestMock(
+        requestId,
+        [12345n],
+        consumer1.address, // Use consumer1 as refundee
+      );
+      await fulfillTx.wait();
+
+      // Record refundee balance after fulfillment
+      const refundeeBalanceAfter = await ethers.provider.getBalance(
+        consumer1.address,
+      );
+
+      // Check if gas refund occurred (refundee should have received some ETH back)
+      const refundReceived = refundeeBalanceAfter - refundeeBalanceBefore;
+
+      // The refund should be positive (since callback uses much less than 500k gas)
+      expect(refundReceived).to.be.gt(0);
+
+      // Verify that FulfillmentGasRefunded event was emitted
+      await expect(fulfillTx)
+        .to.emit(coordinator, "FulfillmentGasRefunded")
+        .withArgs(
+          requestId,
+          consumer1.address,
+          refundReceived,
+          true, // refundedSuccessfully should be true
+        );
+    });
+
+    it("Should not refund gas when refundee is zero address", async function () {
+      const { coordinator, consumer1 } = await loadFixture(
+        deployCoordinatorMockFixture,
+      );
+
+      const callbackGasLimit = 500_000;
+      const numWords = 1;
+      const price =
+        await coordinator.calculateRequestPriceNative(callbackGasLimit);
+
+      // Make request with zero address as refundee
+      const tx = await coordinator
+        .connect(consumer1)
+        .requestRandomnessPayInNative(
+          callbackGasLimit,
+          numWords,
+          ethers.ZeroAddress,
+          {
+            value: price,
+          },
+        );
+      const receipt = await tx.wait();
+
+      // Extract request ID
+      const event = receipt?.logs.find((log) => {
+        try {
+          const parsed = coordinator.interface.parseLog(log);
+          return parsed?.name === "RandomWordsRequested";
+        } catch {
+          return false;
+        }
+      });
+      const parsedEvent = coordinator.interface.parseLog(event!);
+      const requestId = parsedEvent?.args[0];
+
+      // Fulfill the request with zero address as refundee
+      const fulfillTx = await coordinator.fulfillRequestMock(
+        requestId,
+        [12345n],
+        ethers.ZeroAddress, // Zero address refundee
+      );
+
+      // Verify that NO FulfillmentGasRefunded event was emitted
+      await expect(fulfillTx).to.not.emit(
+        coordinator,
+        "FulfillmentGasRefunded",
+      );
+    });
+
+    it("Should refund correct amount based on actual gas used vs gas limit", async function () {
+      const { coordinator, consumer1, user1 } = await loadFixture(
+        deployCoordinatorMockFixture,
+      );
+
+      const callbackGasLimit = 1_000_000; // 1M gas limit
+      const numWords = 1;
+      const price =
+        await coordinator.calculateRequestPriceNative(callbackGasLimit);
+
+      // Make request
+      const tx = await coordinator
+        .connect(consumer1)
+        .requestRandomnessPayInNative(
+          callbackGasLimit,
+          numWords,
+          user1.address,
+          {
+            value: price,
+          },
+        );
+      const receipt = await tx.wait();
+
+      // Extract request ID
+      const event = receipt?.logs.find((log) => {
+        try {
+          const parsed = coordinator.interface.parseLog(log);
+          return parsed?.name === "RandomWordsRequested";
+        } catch {
+          return false;
+        }
+      });
+      const parsedEvent = coordinator.interface.parseLog(event!);
+      const requestId = parsedEvent?.args[0];
+
+      // Record refundee balance before fulfillment
+      const refundeeBalanceBefore = await ethers.provider.getBalance(
+        user1.address,
+      );
+
+      // Fulfill with gas measurement
+      const fulfillTx = await coordinator.fulfillRequestMock(
+        requestId,
+        [98765n],
+        user1.address,
+      );
+      const fulfillReceipt = await fulfillTx.wait();
+
+      // Record refundee balance after fulfillment
+      const refundeeBalanceAfter = await ethers.provider.getBalance(
+        user1.address,
+      );
+      const refundReceived = refundeeBalanceAfter - refundeeBalanceBefore;
+
+      // Extract refund amount from event
+      const refundEvent = fulfillReceipt?.logs.find((log) => {
+        try {
+          const parsed = coordinator.interface.parseLog(log);
+          return parsed?.name === "FulfillmentGasRefunded";
+        } catch {
+          return false;
+        }
+      });
+
+      expect(refundEvent).to.not.be.undefined;
+
+      if (refundEvent) {
+        const parsedRefundEvent = coordinator.interface.parseLog(refundEvent);
+        const eventRefundAmount = parsedRefundEvent?.args[2];
+
+        // The refund amount in the event should match what the refundee received
+        expect(refundReceived).to.equal(eventRefundAmount);
+
+        // Verify the refund is 90% of unused gas (10% penalty)
+        // Since we allocated 1M gas but callback uses much less, there should be a significant refund
+        expect(refundReceived).to.be.gt(0);
+
+        // Verify refund details in event
+        expect(parsedRefundEvent?.args[0]).to.equal(requestId); // requestId
+        expect(parsedRefundEvent?.args[1]).to.equal(user1.address); // refundee
+        expect(parsedRefundEvent?.args[3]).to.be.true; // refundedSuccessfully
+      }
+    });
+
+    it("Should handle gas refund failure gracefully when refundee cannot receive ETH", async function () {
+      const { coordinator, consumer1 } = await loadFixture(
+        deployCoordinatorMockFixture,
+      );
+
+      // Deploy a contract that rejects ETH to use as refundee
+      const RejectingContract = await ethers.getContractFactory(
+        "EmptyRevertVRFConsumer",
+      );
+      const rejectingContract = await RejectingContract.deploy();
+      await rejectingContract.waitForDeployment();
+
+      const callbackGasLimit = 500_000;
+      const numWords = 1;
+      const price =
+        await coordinator.calculateRequestPriceNative(callbackGasLimit);
+
+      // Make request with rejecting contract as refundee
+      const tx = await coordinator
+        .connect(consumer1)
+        .requestRandomnessPayInNative(
+          callbackGasLimit,
+          numWords,
+          await rejectingContract.getAddress(),
+          {
+            value: price,
+          },
+        );
+      const receipt = await tx.wait();
+
+      // Extract request ID
+      const event = receipt?.logs.find((log) => {
+        try {
+          const parsed = coordinator.interface.parseLog(log);
+          return parsed?.name === "RandomWordsRequested";
+        } catch {
+          return false;
+        }
+      });
+      const parsedEvent = coordinator.interface.parseLog(event!);
+      const requestId = parsedEvent?.args[0];
+
+      // Fulfill the request - this should still work even if refund fails
+      const fulfillTx = await coordinator.fulfillRequestMock(
+        requestId,
+        [55555n],
+        await rejectingContract.getAddress(),
+      );
+
+      // The fulfillment should succeed even if refund fails
+      await expect(fulfillTx).to.not.be.reverted;
+
+      // Check if FulfillmentGasRefunded event was emitted with success=false
+      const fulfillReceipt = await fulfillTx.wait();
+      const refundEvent = fulfillReceipt?.logs.find((log) => {
+        try {
+          const parsed = coordinator.interface.parseLog(log);
+          return parsed?.name === "FulfillmentGasRefunded";
+        } catch {
+          return false;
+        }
+      });
+
+      if (refundEvent) {
+        const parsedRefundEvent = coordinator.interface.parseLog(refundEvent);
+        // The refund should have failed (success = false)
+        expect(parsedRefundEvent?.args[3]).to.be.false; // refundedSuccessfully
+      }
+    });
+
+    it("Should not refund gas when unused gas is below minimum threshold", async function () {
+      const { coordinator, consumer1 } = await loadFixture(
+        deployCoordinatorMockFixture,
+      );
+
+      // Use a very small gas limit so that the unused gas is below the 50k threshold
+      const callbackGasLimit = 60_000; // Small limit
+      const numWords = 1;
+      const price =
+        await coordinator.calculateRequestPriceNative(callbackGasLimit);
+
+      // Make request
+      const tx = await coordinator
+        .connect(consumer1)
+        .requestRandomnessPayInNative(
+          callbackGasLimit,
+          numWords,
+          consumer1.address,
+          {
+            value: price,
+          },
+        );
+      const receipt = await tx.wait();
+
+      // Extract request ID
+      const event = receipt?.logs.find((log) => {
+        try {
+          const parsed = coordinator.interface.parseLog(log);
+          return parsed?.name === "RandomWordsRequested";
+        } catch {
+          return false;
+        }
+      });
+      const parsedEvent = coordinator.interface.parseLog(event!);
+      const requestId = parsedEvent?.args[0];
+
+      // Fulfill the request
+      const fulfillTx = await coordinator.fulfillRequestMock(
+        requestId,
+        [11111n],
+        consumer1.address,
+      );
+
+      // With such a small gas limit, the unused gas after 10% penalty should be below 50k threshold
+      // So no FulfillmentGasRefunded event should be emitted
+      await expect(fulfillTx).to.not.emit(
+        coordinator,
+        "FulfillmentGasRefunded",
+      );
+    });
+
+    it("Should not refund when there is a refundee but no excess payment to refund", async function () {
+      const { coordinator, consumer1 } = await loadFixture(
+        deployCoordinatorMockFixture,
+      );
+
+      const callbackGasLimit = 100_000;
+      const numWords = 1;
+      const price =
+        await coordinator.calculateRequestPriceNative(callbackGasLimit);
+
+      // Pay exactly the required amount (no overpayment)
+      const tx = await coordinator
+        .connect(consumer1)
+        .requestRandomnessPayInNative(
+          callbackGasLimit,
+          numWords,
+          consumer1.address,
+          {
+            value: price, // Exact payment, no excess
+          },
+        );
+
+      // Verify that NO RequestGasRefunded event was emitted during the request
+      // since msg.value == requiredPayment, so refundAmount would be 0
+      await expect(tx).to.not.emit(coordinator, "RequestGasRefunded");
+
+      // Also verify the request was successful
+      await expect(tx).to.emit(coordinator, "RandomWordsRequested");
+    });
+
+    it("Should refund excess payment during request when there is overpayment", async function () {
+      const { coordinator, consumer1 } = await loadFixture(
+        deployCoordinatorMockFixture,
+      );
+
+      const callbackGasLimit = 100_000;
+      const numWords = 1;
+      const price =
+        await coordinator.calculateRequestPriceNative(callbackGasLimit);
+
+      // Overpay by 1 ETH
+      const overpayment = ethers.parseEther("1");
+      const totalPayment = price + overpayment;
+
+      // Record balance before request
+      const balanceBefore = await ethers.provider.getBalance(consumer1.address);
+
+      const tx = await coordinator
+        .connect(consumer1)
+        .requestRandomnessPayInNative(
+          callbackGasLimit,
+          numWords,
+          consumer1.address,
+          {
+            value: totalPayment,
+          },
+        );
+      const receipt = await tx.wait();
+
+      // Record balance after request
+      const balanceAfter = await ethers.provider.getBalance(consumer1.address);
+
+      // Calculate expected refund: 90% of excess payment
+      const expectedRefund = (overpayment * 9n) / 10n;
+
+      // Verify RequestGasRefunded event was emitted
+      await expect(tx).to.emit(coordinator, "RequestGasRefunded");
+
+      // Check that the refund was actually received
+      const gasUsed = receipt!.gasUsed * receipt!.gasPrice;
+      const netChange = balanceBefore - balanceAfter - gasUsed; // Should equal totalPayment - expectedRefund
+      const actualRefund = totalPayment - netChange;
+
+      expect(actualRefund).to.equal(expectedRefund);
+
+      // Verify the event details
+      const refundEvent = receipt?.logs.find((log) => {
+        try {
+          const parsed = coordinator.interface.parseLog(log);
+          return parsed?.name === "RequestGasRefunded";
+        } catch {
+          return false;
+        }
+      });
+
+      expect(refundEvent).to.not.be.undefined;
+
+      if (refundEvent) {
+        const parsedRefundEvent = coordinator.interface.parseLog(refundEvent);
+        expect(parsedRefundEvent?.args[1]).to.equal(consumer1.address); // refundee
+        expect(parsedRefundEvent?.args[2]).to.equal(expectedRefund); // refundAmount
+        expect(parsedRefundEvent?.args[3]).to.be.true; // refundedSuccessfully
+      }
+    });
+  });
+
   describe("Callback Failures", function () {
     async function deployWithFailingConsumerFixture() {
       const fixture = await deployCoordinatorMockFixture();
