@@ -3,6 +3,7 @@ import "dotenv/config";
 import { type HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomiclabs/hardhat-solhint";
+import "@openzeppelin/hardhat-upgrades";
 import "hardhat-abi-exporter";
 import "hardhat-contract-sizer";
 import "hardhat-storage-layout";
@@ -83,7 +84,9 @@ const config: HardhatUserConfig = {
       "EllipticCurve.sol",
       "VRF.sol",
       "FeeM.sol",
+      "PaintswapVRFConsumerBase.sol",
       "PaintswapVRFConsumer.sol",
+      "PaintswapVRFConsumerUpgradeable.sol",
       "PaintswapVRFCoordinatorCore.sol",
       "ExampleVRFConsumer.sol",
       "MockVRFCoordinator.sol",
