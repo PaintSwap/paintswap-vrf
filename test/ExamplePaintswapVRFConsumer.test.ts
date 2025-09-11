@@ -96,6 +96,16 @@ describe("ExampleVRFConsumer", function () {
       expect(await consumer.MAX_WORDS_PER_REQUEST()).to.equal(10);
       expect(await consumer.CALLBACK_GAS_LIMIT()).to.equal(2_000_000);
     });
+
+    it("Should not allow zero address in constructor args", async function () {
+      const [owner] = await ethers.getSigners();
+
+      const Example = await ethers.getContractFactory("ExampleVRFConsumer");
+
+      await expect(
+        Example.deploy(ethers.ZeroAddress),
+      ).to.be.revertedWithCustomError(Example, "ZeroAddress");
+    });
   });
 
   describe("Request Price Calculation", function () {

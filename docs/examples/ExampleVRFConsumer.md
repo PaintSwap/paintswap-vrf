@@ -438,6 +438,22 @@ Emitted when randomness is requested
 | timestamp  | uint256 | undefined |
 | paidFromContract  | bool | undefined |
 
+### VRFCoordinatorSet
+
+```solidity
+event VRFCoordinatorSet(address indexed coordinator)
+```
+
+
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| coordinator `indexed` | address | undefined |
+
 
 
 ## Errors
@@ -509,6 +525,17 @@ error OnlyVRFCoordinator(address sender, address coordinator)
 |---|---|---|
 | sender | address | The address that attempted to call the function |
 | coordinator | address | The address of the authorized VRF coordinator |
+
+### ZeroAddress
+
+```solidity
+error ZeroAddress()
+```
+
+
+
+*Error thrown when a zero address is provided where it is not allowed*
+
 
 ### ZeroDepositAmount
 

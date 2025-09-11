@@ -1,8 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { consumer } from "../typechain-types/mocks";
-import { CustomErrorVRFConsumer } from "../typechain-types";
 import { formatUnits, parseUnits } from "ethers";
 
 describe("MockVRFCoordinator", function () {
@@ -66,52 +64,6 @@ describe("MockVRFCoordinator", function () {
       numWords,
       // price,
       requestGasPrice,
-    };
-  }
-
-  async function deployWithFailingConsumerFixture() {
-    const fixture = await deployCoordinatorMockFixture();
-    const { coordinator, consumer1 } = fixture;
-
-    // Deploy a failing consumer for testing
-    const FailingVRFConsumer =
-      await ethers.getContractFactory("FailingVRFConsumer");
-    const failingConsumer = await FailingVRFConsumer.deploy();
-    await failingConsumer.waitForDeployment();
-
-    // Make a request from the failing consumer
-    const callbackGasLimit = 100_000;
-    const numWords = 2;
-    const price =
-      await coordinator.calculateRequestPriceNative(callbackGasLimit);
-
-    const tx = await failingConsumer.requestRandomness(
-      await coordinator.getAddress(),
-      callbackGasLimit,
-      numWords,
-      { value: price },
-    );
-    const receipt = await tx.wait();
-
-    // Extract request ID
-    const event = receipt?.logs.find((log) => {
-      try {
-        const parsed = coordinator.interface.parseLog(log);
-        return parsed?.name === "RandomWordsRequested";
-      } catch {
-        return false;
-      }
-    });
-
-    const parsedEvent = coordinator.interface.parseLog(event!);
-    const requestId = parsedEvent?.args[0];
-
-    return {
-      ...fixture,
-      failingConsumer,
-      requestId,
-      callbackGasLimit,
-      numWords,
     };
   }
 

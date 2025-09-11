@@ -1,12 +1,12 @@
-# PaintswapVRFConsumer
+# PaintswapVRFConsumerBase
 
 
 
-> PaintswapVRFConsumer
+> PaintswapVRFConsumerBase
 
-Implement this contract to request and receive verifiable randomness from Paintswap&#39;s VRF
+Shared logic for VRF consumer contracts (both upgradeable and non-upgradeable).
 
-*Abstract contract for consuming randomness from the Paintswap VRF (Verifiable Random Function) service*
+*Children must implement `_getVRFCoordinator()` to supply the coordinator reference      and `_fulfillRandomWords()` to process received randomness.*
 
 ## Methods
 

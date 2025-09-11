@@ -1,12 +1,12 @@
-# PaintswapVRFConsumer
+# PaintswapVRFConsumerUpgradeable
 
 
 
-> PaintswapVRFConsumer
+> PaintswapVRFConsumerUpgradeable (UUPS, namespaced storage)
 
-Implement this contract to request and receive verifiable randomness from Paintswap&#39;s VRF
+Upgradeable VRF consumer base that stores the coordinator in a custom storage slot.
 
-*Abstract contract for consuming randomness from the Paintswap VRF (Verifiable Random Function) service*
+*Inherit and implement `_fulfillRandomWords`. Call `initialize` instead of a constructor.*
 
 ## Methods
 
@@ -31,6 +31,22 @@ This function can only be called by the VRF coordinator
 
 ## Events
 
+### Initialized
+
+```solidity
+event Initialized(uint64 version)
+```
+
+
+
+*Triggered when the contract has been initialized or reinitialized.*
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| version  | uint64 | undefined |
+
 ### VRFCoordinatorSet
 
 ```solidity
@@ -50,6 +66,28 @@ event VRFCoordinatorSet(address indexed coordinator)
 
 
 ## Errors
+
+### InvalidInitialization
+
+```solidity
+error InvalidInitialization()
+```
+
+
+
+*The contract is already initialized.*
+
+
+### NotInitializing
+
+```solidity
+error NotInitializing()
+```
+
+
+
+*The contract is not initializing.*
+
 
 ### OnlyVRFCoordinator
 
