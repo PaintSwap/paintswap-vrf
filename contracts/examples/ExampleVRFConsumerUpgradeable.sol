@@ -35,15 +35,20 @@ contract ExampleVRFConsumerUpgradeable is
     // no-op for tests
   }
 
-  // Helper to call internal _calculateRequestPriceNative
+  /**
+   * Calculate the native request price for a given callback gas limit.
+   * @param callbackGasLimit The gas limit for the callback function.
+   */
   function calculateRequestPriceNative(
     uint256 callbackGasLimit
   ) external view returns (uint256) {
     return _calculateRequestPriceNative(callbackGasLimit);
   }
 
-  // Public payable wrapper used by tests to request randomness. Accepts the
-  // number of words and forwards the native payment to the coordinator.
+  /**
+   * Request random words from the VRF coordinator.
+   * @param numWords The number of random words to request.
+   */
   function requestRandomWords(
     uint256 numWords
   ) external payable returns (uint256) {
@@ -58,6 +63,11 @@ contract ExampleVRFConsumerUpgradeable is
     return requestId;
   }
 
-  /// @dev UUPS auth
-  function _authorizeUpgrade(address) internal override onlyOwner {}
+  /**
+   * @dev UUPS authorization
+   * @param newImplementation The address of the new implementation contract.
+   */
+  function _authorizeUpgrade(
+    address newImplementation
+  ) internal override onlyOwner {}
 }

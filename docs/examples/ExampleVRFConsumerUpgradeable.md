@@ -33,7 +33,7 @@ function UPGRADE_INTERFACE_VERSION() external view returns (string)
 function calculateRequestPriceNative(uint256 callbackGasLimit) external view returns (uint256)
 ```
 
-
+Calculate the native request price for a given callback gas limit.
 
 
 
@@ -41,7 +41,7 @@ function calculateRequestPriceNative(uint256 callbackGasLimit) external view ret
 
 | Name | Type | Description |
 |---|---|---|
-| callbackGasLimit | uint256 | undefined |
+| callbackGasLimit | uint256 | The gas limit for the callback function. |
 
 #### Returns
 
@@ -134,7 +134,7 @@ function renounceOwnership() external nonpayable
 function requestRandomWords(uint256 numWords) external payable returns (uint256)
 ```
 
-
+Request random words from the VRF coordinator.
 
 
 
@@ -142,7 +142,7 @@ function requestRandomWords(uint256 numWords) external payable returns (uint256)
 
 | Name | Type | Description |
 |---|---|---|
-| numWords | uint256 | undefined |
+| numWords | uint256 | The number of random words to request. |
 
 #### Returns
 
