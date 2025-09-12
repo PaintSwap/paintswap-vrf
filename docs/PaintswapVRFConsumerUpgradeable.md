@@ -55,13 +55,13 @@ event VRFCoordinatorSet(address indexed coordinator)
 
 
 
-
+*Emitted when the VRF coordinator is set*
 
 #### Parameters
 
 | Name | Type | Description |
 |---|---|---|
-| coordinator `indexed` | address | undefined |
+| coordinator `indexed` | address | The address of the VRF coordinator |
 
 
 

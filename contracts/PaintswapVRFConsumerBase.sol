@@ -23,6 +23,10 @@ abstract contract PaintswapVRFConsumerBase is IPaintswapVRFConsumer {
    */
   error ZeroAddress();
 
+  /**
+   * @dev Emitted when the VRF coordinator is set
+   * @param coordinator The address of the VRF coordinator
+   */
   event VRFCoordinatorSet(address indexed coordinator);
 
   /**
@@ -49,9 +53,9 @@ abstract contract PaintswapVRFConsumerBase is IPaintswapVRFConsumer {
 
   /**
    * @dev Calculates the price in native currency for a randomness request
+   * @notice The price depends on the current gas price and the callback gas limit
    * @param callbackGasLimit Maximum gas allowed for the fulfillment callback
    * @return requestPrice The price in native currency for the request
-   * @notice The price depends on the current gas price and the callback gas limit
    */
   function _calculateRequestPriceNative(
     uint256 callbackGasLimit
@@ -98,9 +102,9 @@ abstract contract PaintswapVRFConsumerBase is IPaintswapVRFConsumer {
   /**
    * @dev Callback function called by the VRF coordinator to deliver random words
    * @dev Special care should be taken when overriding this function. Use `_fulfillRandomWords()` instead.
+   * @notice This function can only be called by the VRF coordinator
    * @param requestId The ID of the request to which these random words belong
    * @param randomWords The array of random words for the request
-   * @notice This function can only be called by the VRF coordinator
    */
   function rawFulfillRandomWords(
     uint256 requestId,
