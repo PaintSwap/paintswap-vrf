@@ -2,29 +2,33 @@
 
 [![npm version](https://badge.fury.io/js/%40paintswap%2Fvrf.svg)](https://badge.fury.io/js/%40paintswap%2Fvrf)
 
-A decentralized Verifiable Random Function (VRF) service for the Sonic ecosystem, providing secure and verifiable on-chain randomness for smart contracts.
+A decentralized Verifiable Random Function (VRF) service for the Sonic and Robinhood ecosystems, providing secure and verifiable on-chain randomness for smart contracts.
 
 Paintswap VRF Dashboard: [https://vrf.paintswap.io](https://vrf.paintswap.io)
 
 ## Overview
 
-Paintswap VRF is a comprehensive solution for generating verifiable random numbers on-chain. It consists of a coordinator contract that manages randomness requests and oracle fulfillments, along with consumer contracts that can request and receive random numbers. Typical round trip response time to fulfillment is 1-2 seconds.
+Paintswap VRF is a comprehensive multi-chain solution for generating verifiable random numbers on-chain. It consists of a coordinator contract that manages randomness requests and oracle fulfillments, along with consumer contracts that can request and receive random numbers.
 
-The only fee required is the fulfillment gas payment, based on the callback gas limit and the current gas prices seen on the network. To use the service implement the `PaintswapVRFConsumer` contract or `IPaintswapVRFConsumer` interface, price the request, then submit the fulfillment gas payment either from the user or supplied at request time by the consumer contract. Our VRF Oracle will do the rest.
+On Sonic, typical round trip response time to fulfillment is 1–2 seconds. The only fee required on Sonic is the fulfillment gas payment, based on the callback gas limit and current network gas prices. Sonic's Fee Monetization (FeeM) program helps fund the oracle infrastructure; this funding model is Sonic-only and does not apply to Robinhood.
+
+On Robinhood mainnet, each request costs a flat `0.00001 ETH` request fee plus the estimated fulfillment gas payment. Robinhood uses ETH as its native currency.
+
+To use the service, implement the `PaintswapVRFConsumer` contract or `IPaintswapVRFConsumer` interface, price the request, then submit the required native payment either from the user or supplied at request time by the consumer contract. Our VRF Oracle will do the rest.
 
 If the callback to the consumer contract reverts or runs out of gas, the request is considered fulfilled and **_will not be retried_**. Please ensure that your callback functions can handle this case.
 
-Unused gas for the fulfillment callback is refunded to the `refundee` address specified in the callback. This could be anything from `tx.origin`, `msg.sender`, `address(this)`, or use `address(0)` to leave excess gas as a tip for the service 🙏.
+Across supported deployments, unused fulfillment-callback gas above the coordinator's 50k threshold is refunded to the request's `refundee` address. This can be `tx.origin`, `msg.sender`, `address(this)`, or `address(0)` to leave excess gas as a tip for the service 🙏.
 
-> _Note: there is a 50k gas threshold for refunds as well as a 10% Sonic network penalty on unused gas._
+> _Sonic only: the network applies a 10% penalty to unused gas. Robinhood does not use Sonic FeeM or this Sonic network-level penalty._
 
 ### Features
 
 - ✅ **Verifiable Randomness**: Uses cryptographic proofs to ensure randomness cannot be manipulated
-- ✅ **Gas Efficient**: Optimized for low-cost operations on Sonic
+- ✅ **Gas Efficient**: Optimized for low-cost operations across supported networks
 - ✅ **Solidity Support**: Consumer contracts, interfaces, and mocks included
 - ✅ **TypeScript Support**: Full type definitions included
-- ✅ **Blazing Fast**: Leverages the speed of the Sonic network
+- ✅ **Blazing Fast on Sonic**: Typical fulfillment takes 1–2 seconds on Sonic
 
 ## Installation
 
@@ -34,10 +38,11 @@ npm install @paintswap/vrf
 
 ## Network Support
 
-| Network       | Chain ID | VRF Coordinator                              |
-| ------------- | -------- | -------------------------------------------- |
-| Sonic Mainnet | 146      | `0x6E3efcB244e74Cb898A7961061fAA43C3cf79691` |
-| Blaze Testnet | 57054    | `0x6E3efcB244e74Cb898A7961061fAA43C3cf79691` |
+| Network           | Chain ID | VRF Coordinator                                                                                                                                        |
+| ----------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Sonic Mainnet     | 146      | `0x6E3efcB244e74Cb898A7961061fAA43C3cf79691`                                                                                                           |
+| Robinhood Testnet | 46630    | `0xbF954C371371e9Ed098D47a3b97f6C5F3b39C867`                                                                                                           |
+| Robinhood Mainnet | 4663     | `0xbF954C371371e9Ed098D47a3b97f6C5F3b39C867` |
 
 ## Quick Start
 
@@ -88,7 +93,7 @@ contract MyContract is PaintswapVRFConsumer {
 }
 ```
 
-### Using the TypeScript SDK
+### Using the TypeScript SDK on Sonic
 
 ```typescript
 import { ethers } from "ethers";
@@ -145,6 +150,40 @@ if (requestedEvent) {
 } else {
   console.error("RandomWordsRequested event not found");
 }
+```
+
+### Robinhood Mainnet (ETH-native)
+
+Robinhood mainnet uses ETH for both the flat `0.00001 ETH` request fee and fulfillment gas. `calculateRequestPriceNative` returns their combined required payment.
+
+```typescript
+import { ethers } from "ethers";
+import { PaintswapVRFCoordinator__factory } from "@paintswap/vrf";
+
+const provider = new ethers.JsonRpcProvider(
+  "https://rpc.mainnet.chain.robinhood.com",
+  4663,
+);
+
+// Load the key from a secure environment variable; never hard-code it.
+const signer = new ethers.Wallet(process.env.PRIVATE_KEY!, provider);
+const coordinator = PaintswapVRFCoordinator__factory.connect(
+  "0xbF954C371371e9Ed098D47a3b97f6C5F3b39C867",
+  signer,
+);
+
+const callbackGasLimit = 100_000;
+const numberOfWords = 1;
+const requestPrice =
+  await coordinator.calculateRequestPriceNative(callbackGasLimit);
+
+const tx = await coordinator.requestRandomnessPayInNative(
+  callbackGasLimit,
+  numberOfWords,
+  await signer.getAddress(),
+  { value: requestPrice },
+);
+await tx.wait();
 ```
 
 ## Development & Testing
@@ -713,4 +752,4 @@ For questions and support:
 
 ---
 
-Built with ❤️ by the Paintswap team for the Sonic ecosystem.
+Built with ❤️ by the Paintswap team.
